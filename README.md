@@ -1,6 +1,6 @@
-# Diseño de red segura en entorno de pagos
+# Diseño de Red Segura para Entorno de Pagos
 
-Debes diseñar una topología de red segura en la nube para un entorno de pagos. La red debe segmentarse en subredes públicas y privadas, aplicando el principio de menor privilegio en las identidades. Los servicios de pago se hospedarán en las subredes privadas, mientras que los servicios de monitoreo y auditoría se ubicarán en las subredes públicas. La red debe garantizar la confidencialidad, integridad y disponibilidad de los datos de pago. Los actores involucrados son el originador de pagos, el motor antifraude, el buró de riesgos y el sistema de liquidación. La red debe soportar un throughput de 10 000 transacciones por segundo con un SLA de 99.9%.
+El entorno de pagos de una institución financiera requiere una red segura y segmentada en la nube. Debes diseñar una topología de red que incluya subredes públicas y privadas, aplicando el principio de menor privilegio en las identidades. Los componentes clave son el gateway de pagos, el sistema de liquidación y el motor antifraude. La red debe soportar un throughput de 10 000 transacciones por segundo con un SLA del 99.99%.
 
 ## Informacion General
 
@@ -38,90 +38,87 @@ Debes diseñar una topología de red segura en la nube para un entorno de pagos.
 
 </details>
 
-### Fase 1: Exploración del dominio y requisitos
+### Fase 1: Definición de Requisitos de Red
 
-**Objetivo:** Identificar los requisitos de red y las restricciones del dominio de pagos
+**Objetivo:** Identificar y documentar los requisitos de red para el entorno de pagos.
 
 **Tiempo estimado:** 2 horas
 
 **Instrucciones:**
 
-- Enumera los actores y servicios involucrados en el dominio de pagos.
-- Identifica las propiedades operativas clave de la red (throughput, latencia, disponibilidad).
-- Establece los umbrales numéricos del dominio (transacciones por segundo, SLA).
-- Describe las restricciones y dependencias del sistema.
+- Enumera los componentes del sistema y sus interacciones.
+- Define las subredes públicas y privadas necesarias.
+- Especifica los umbrales de rendimiento y disponibilidad.
 
-**Entregable:** Documento que describe los requisitos de red y las restricciones del dominio.
+**Entregable:** Documento de requisitos de red.
 
 <details>
 <summary>Pistas de conocimiento</summary>
 
-- Considera las implicaciones de seguridad y rendimiento al definir las subredes.
-- Evalúa las dependencias entre los servicios y su impacto en la topología de red.
+- Considera la segmentación de la red para minimizar la superficie de ataque.
+- Aplica el principio de menor privilegio en las identidades de los componentes.
 
 </details>
 
-### Fase 2: Diseño de la topología de red
+### Fase 2: Diseño de la Topología de Red
 
-**Objetivo:** Diseñar una topología de red segura con subredes públicas y privadas
+**Objetivo:** Crear un diseño detallado de la topología de red que cumpla con los requisitos definidos.
 
 **Tiempo estimado:** 3 horas
 
 **Instrucciones:**
 
-- Define las subredes públicas y privadas y sus propósitos.
-- Aplica el principio de menor privilegio en las identidades de los servicios.
-- Establece las rutas de comunicación entre las subredes y los servicios.
-- Identifica los puntos de entrada y salida de la red y sus medidas de seguridad.
+- Dibuja la topología de red incluyendo subredes públicas y privadas.
+- Define las rutas de tráfico entre componentes.
+- Aplica políticas de seguridad en las fronteras de las subredes.
 
-**Entregable:** Diagrama de la topología de red que muestra las subredes, servicios y rutas de comunicación.
+**Entregable:** Diagrama de la topología de red.
 
 <details>
 <summary>Pistas de conocimiento</summary>
 
-- Considera el balance entre seguridad y rendimiento al definir las rutas de comunicación.
-- Evalúa las medidas de seguridad para los puntos de entrada y salida de la red.
+- Utiliza herramientas de diagramación para crear un diseño claro y comprensible.
+- Aplica políticas de seguridad para proteger las subredes privadas.
 
 </details>
 
-### Fase 3: Evaluación y optimización de la topología de red
+### Fase 3: Implementación y Validación
 
-**Objetivo:** Evaluar y optimizar la topología de red para cumplir con los requisitos de rendimiento y seguridad
+**Objetivo:** Implementar el diseño de la topología de red y validar su funcionamiento.
 
 **Tiempo estimado:** 3 horas
 
 **Instrucciones:**
 
-- Evalúa el throughput y la latencia de la red en diferentes escenarios de carga.
-- Identifica los cuellos de botella y propone soluciones de optimización.
-- Verifica que la topología de red cumpla con el SLA de 99.9%.
-- Propone medidas adicionales de seguridad para mitigar riesgos identificados.
+- Implementa el diseño de la topología de red en la nube.
+- Realiza pruebas de rendimiento y seguridad.
+- Documenta cualquier ajuste realizado y justifica las decisiones tomadas.
 
-**Entregable:** Documento que describe la evaluación y optimización de la topología de red, incluyendo propuestas de mejora y medidas de seguridad adicionales.
+**Entregable:** Documento de implementación y validación de la topología de red.
 
 <details>
 <summary>Pistas de conocimiento</summary>
 
-- Considera el impacto de las optimizaciones en la seguridad y el rendimiento.
-- Evalúa la efectividad de las medidas de seguridad propuestas.
+- Utiliza herramientas de nube para implementar el diseño.
+- Realiza pruebas exhaustivas para validar el funcionamiento de la red.
 
 </details>
 
 ## Dimensiones Evaluadas
 
-- **queEs**: ¿Qué es una topología de red segura y cómo se aplica en el dominio de pagos?
-- **paraQueSirve**: ¿Para qué sirve segmentar la red en subredes públicas y privadas en el contexto de pagos?
-- **comoSeUsa**: ¿Cómo se aplica el principio de menor privilegio en las identidades de los servicios de la red?
+- **queEs**: ¿Qué es una topología de red segura y cómo se aplica en el entorno de pagos?
+- **paraQueSirve**: ¿Para qué sirve segmentar la red en subredes públicas y privadas en el contexto del entorno de pagos?
+- **comoSeUsa**: ¿Cómo se usa el principio de menor privilegio en las identidades de los componentes de la red?
 - **erroresComunes**: ¿Cuáles son los errores comunes al diseñar una topología de red segura y cómo se pueden evitar?
-- **queDecisionesImplica**: ¿Qué decisiones implica el diseño de una topología de red segura en términos de rendimiento y seguridad?
+- **queDecisionesImplica**: ¿Qué decisiones implica el diseño de una topología de red segura para el entorno de pagos?
 
 ## Criterios de Evaluacion
 
-- Identificar correctamente los actores y servicios del dominio de pagos.
-- Definir adecuadamente las subredes públicas y privadas y sus propósitos.
-- Aplicar el principio de menor privilegio en las identidades de los servicios.
-- Establecer rutas de comunicación seguras y eficientes entre las subredes y los servicios.
-- Evaluar y optimizar la topología de red para cumplir con los requisitos de rendimiento y seguridad.
+- Definir correctamente los requisitos de red para el entorno de pagos.
+- Crear un diseño detallado de la topología de red que incluya subredes públicas y privadas.
+- Implementar y validar el diseño de la topología de red en la nube.
+- Aplicar el principio de menor privilegio en las identidades de los componentes.
+- Documentar y justificar las decisiones tomadas durante el proceso.
 
 ## Como trabajar con un asistente de IA
 

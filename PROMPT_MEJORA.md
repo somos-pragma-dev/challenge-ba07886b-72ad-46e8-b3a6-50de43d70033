@@ -12,23 +12,6 @@ Si preferis trabajar en tu editor con un agente local (Claude Code, Cursor, Copi
 
 Dicho de otra forma: si algo impide compilar, arreglalo. Si algo es logica de negocio incompleta, validaciones ausentes, un secreto hardcodeado o un patron mejorable, dejalo exactamente como esta — es lo que la persona tiene que encontrar.
 
-## Lo que le falta a este proyecto
-
-Esto NO lo tenes que adivinar: salio de comparar el proyecto contra la arquitectura declarada del reto y de un analisis estatico del codigo. Completalo TODO.
-
-### Boilerplate del stack que falta
-
-Sin esto no compila ni arranca. Es andamiaje, no toca nada de lo pedagogico:
-
-- **providers.tf** — Sin providers.tf, terraform init no sabe que proveedor bajar y no puede inicializar.
-
-### Archivos que la arquitectura del reto declara y no estan
-
-Creálos con implementacion real, en la capa que les corresponde:
-
-- `providers.tf`
-- `providers.tf`
-
 ## Como saber que terminaste
 
 ```bash
@@ -56,14 +39,14 @@ Definir la red del entorno de pagos
 - Tema: topologia de red segura en la nube
 - Seniority: advanced-l2
 - Tipo: practical
-- Título: Diseño de red segura en entorno de pagos
+- Título: Diseño de Red Segura para Entorno de Pagos
 - Tiempo estimado: 8 horas
 
 ### Fases (trabajo del HUMANO — PROHIBIDO completarlas)
 No implementes estos entregables. Dejalos como hueco pedagógico. El asistente solo materializa el proyecto arrancable para que el participante pueda trabajar.
-- Fase 1: Exploración del dominio y requisitos — objetivo: Identificar los requisitos de red y las restricciones del dominio de pagos — entregable (NO resolver): Documento que describe los requisitos de red y las restricciones del dominio.
-- Fase 2: Diseño de la topología de red — objetivo: Diseñar una topología de red segura con subredes públicas y privadas — entregable (NO resolver): Diagrama de la topología de red que muestra las subredes, servicios y rutas de comunicación.
-- Fase 3: Evaluación y optimización de la topología de red — objetivo: Evaluar y optimizar la topología de red para cumplir con los requisitos de rendimiento y seguridad — entregable (NO resolver): Documento que describe la evaluación y optimización de la topología de red, incluyendo propuestas de mejora y medidas de seguridad adicionales.
+- Fase 1: Definición de Requisitos de Red — objetivo: Identificar y documentar los requisitos de red para el entorno de pagos. — entregable (NO resolver): Documento de requisitos de red.
+- Fase 2: Diseño de la Topología de Red — objetivo: Crear un diseño detallado de la topología de red que cumpla con los requisitos definidos. — entregable (NO resolver): Diagrama de la topología de red.
+- Fase 3: Implementación y Validación — objetivo: Implementar el diseño de la topología de red y validar su funcionamiento. — entregable (NO resolver): Documento de implementación y validación de la topología de red.
 
 Eres un asistente experto en análisis, corrección y generación de archivos de cualquier tipo:
 código fuente, documentación, hojas de cálculo, documentos Word, configuraciones, entre otros.
@@ -200,148 +183,136 @@ El participante que recibirá este proyecto los debe encontrar y resolver él mi
 INPUT
 Aquí está la cadena con los archivos:
 
+// === ARCHIVO: providers.tf ===
+# Configuración de providers y versiones de Terraform
+# Este archivo define los providers necesarios para el despliegue de infraestructura en AWS
+# y especifica las restricciones de versión para garantizar compatibilidad
+
 terraform {
-  required_version = ">= 1.5"
+  required_version = ">= 1.5, < 2.0"
 
   required_providers {
     aws = {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
-    kubernetes = {
-      source  = "hashicorp/kubernetes"
-      version = "~> 2.0"
-    }
-  }
-
-  backend "s3" {
-    bucket         = "tf-state-payments-network"
-    key            = "network/terraform.tfstate"
-    region         = "us-east-1"
-    encrypt        = true
-    dynamodb_table = "tf-state-lock"
   }
 }
 
+# Provider de AWS con configuración regional y opciones de comportamiento
+# La región se define mediante variable de entorno AWS_DEFAULT_REGION o se sobrescribe en tfvars
 provider "aws" {
   region = var.aws_region
 
   default_tags {
-    tags = {
-      Project     = "pagos-seguros"
-      ManagedBy   = "terraform"
-      Environment = var.environment
-      CostCenter  = var.cost_center
-    }
+    tags = var.common_tags
   }
 
   skip_credentials_validation = false
   skip_requesting_account_id  = false
   skip_metadata_api_check     = true
-}
 
-provider "aws" {
-  alias  = "secondary_region"
-  region = var.secondary_region
-
-  default_tags {
-    tags = {
-      Project     = "pagos-seguros"
-      ManagedBy   = "terraform"
-      Environment = var.environment
-      CostCenter  = var.cost_center
-    }
+  endpoints {
+    ec2        = "ec2.${var.aws_region}.amazonaws.com"
+    elb        = "elasticloadbalancing.${var.aws_region}.amazonaws.com"
+    iam        = "iam.${var.aws_region}.amazonaws.com"
+    cloudwatch = "logs.${var.aws_region}.amazonaws.com"
   }
 }
 
-provider "kubernetes" {
-  host                   = var.eks_cluster_endpoint
-  cluster_ca_certificate = var.eks_cluster_ca_cert
-  token                  = var.eks_cluster_token
-  load_config_file       = false
-}
 // === ARCHIVO: variables.tf ===
-variable "aws_region" {
-  description = "Región primaria de AWS donde se desplegará la infraestructura"
-  type        = string
-}
+# Declaración de variables globales del proyecto de infraestructura
+# Estas variables definen la configuración base que se aplica a todos los módulos
+# Los valores se proporcionan a través de archivos terraform.tfvars por ambiente
 
-variable "secondary_region" {
-  description = "Región secundaria de AWS para redundancia geográfica"
+variable "aws_region" {
+  description = "Región de AWS donde se desplegará la infraestructura"
   type        = string
 }
 
 variable "environment" {
-  description = "Entorno de despliegue (dev, qa, prod)"
+  description = "Ambiente de despliegue (dev, qa, prod)"
   type        = string
   validation {
     condition     = contains(["dev", "qa", "prod"], var.environment)
-    error_message = "El entorno debe ser uno de: dev, qa, prod"
+    error_message = "El ambiente debe ser uno de: dev, qa, prod"
   }
 }
 
-variable "cost_center" {
-  description = "Centro de costos para etiquetado y optimización de gastos"
-  type        = string
-}
-
 variable "project_name" {
-  description = "Nombre del proyecto para nomenclatura de recursos"
+  description = "Nombre del proyecto para identificación de recursos"
   type        = string
 }
 
 variable "vpc_cidr" {
-  description = "Bloque CIDR principal para la VPC"
+  description = "CIDR block principal para la VPC"
   type        = string
   validation {
     condition     = can(cidrhost(var.vpc_cidr, 0))
-    error_message = "El CIDR de la VPC debe ser una dirección de red válida"
+    error_message = "Debe ser un CIDR válido (ej. 10.0.0.0/16)"
   }
 }
 
 variable "availability_zones" {
-  description = "Zonas de disponibilidad para la región primaria"
-  type        = list(string)
-}
-
-variable "secondary_availability_zones" {
-  description = "Zonas de disponibilidad para la región secundaria"
+  description = "Lista de AZs a utilizar en el entorno"
   type        = list(string)
 }
 
 variable "public_subnet_cidrs" {
-  description = "Bloques CIDR para subredes públicas"
+  description = "CIDRs para subredes públicas"
   type        = list(string)
 }
 
-variable "private_subnet_cidrs_pagos" {
-  description = "Bloques CIDR para subredes privadas del dominio de pagos"
+variable "private_subnet_cidrs" {
+  description = "CIDRs para subredes privadas (aplicación)"
   type        = list(string)
 }
 
-variable "private_subnet_cidrs_monitoreo" {
-  description = "Bloques CIDR para subredes privadas de monitoreo"
+variable "database_subnet_cidrs" {
+  description = "CIDRs para subredes de base de datos"
   type        = list(string)
 }
 
-variable "private_subnet_cidrs_auditoria" {
-  description = "Bloques CIDR para subredes privadas de auditoría"
-  type        = list(string)
+variable "common_tags" {
+  description = "Tags comunes aplicados a todos los recursos"
+  type        = map(string)
+  default     = {}
 }
 
-variable "nat_gateway_count" {
-  description = "Cantidad de NAT Gateways a desplegar (1 por AZ o 1 único)"
-  type        = number
-  validation {
-    condition     = var.nat_gateway_count >= 1 && var.nat_gateway_count <= 3
-    error_message = "La cantidad de NAT Gateways debe estar entre 1 y 3"
-  }
+variable "enable_nat_gateway" {
+  description = "Habilitar NAT Gateway para salida a internet desde subredes privadas"
+  type        = bool
+  default     = true
+}
+
+variable "single_nat_gateway" {
+  description = "Usar una única NAT Gateway para todas las subredes privadas (optimización de costos)"
+  type        = bool
+  default     = false
 }
 
 variable "enable_vpn_gateway" {
-  description = "Habilitar VPN Gateway para acceso seguro a la VPC"
+  description = "Habilitar VPN Gateway para conectividad híbrida"
   type        = bool
   default     = false
+}
+
+variable "enable_dx_gateway" {
+  description = "Habilitar Direct Connect Gateway para conectividad dedicada"
+  type        = bool
+  default     = false
+}
+
+variable "flow_log_destination_type" {
+  description = "Tipo de destino para VPC Flow Logs (cloud-watch-logs, s3, kinesis-data-firehose)"
+  type        = string
+  default     = "cloud-watch-logs"
+}
+
+variable "flow_log_retention_days" {
+  description = "Días de retención para logs de flujo de VPC"
+  type        = number
+  default     = 90
 }
 
 variable "enable_transit_gateway" {
@@ -351,28 +322,13 @@ variable "enable_transit_gateway" {
 }
 
 variable "allowed_cidr_blocks" {
-  description = "Bloques CIDR autorizados para acceso a servicios públicos"
+  description = "Bloques CIDR permitidos para acceso a recursos públicos"
   type        = list(string)
-}
-
-variable "enable_flow_logs" {
-  description = "Habilitar VPC Flow Logs para observabilidad del tráfico"
-  type        = bool
-  default     = true
-}
-
-variable "flow_log_destination_type" {
-  description = "Tipo de destino para VPC Flow Logs (s3, cloud-watch-logs)"
-  type        = string
-  default     = "s3"
-  validation {
-    condition     = contains(["s3", "cloud-watch-logs"], var.flow_log_destination_type)
-    error_message = "El tipo de destino debe ser s3 o cloud-watch-logs"
-  }
+  default     = []
 }
 
 variable "enable_dns_hostnames" {
-  description = "Habilitar nombres de host DNS en la VPC"
+  description = "Habilitar DNS hostnames en la VPC"
   type        = bool
   default     = true
 }
@@ -383,715 +339,849 @@ variable "enable_dns_support" {
   default     = true
 }
 
-variable "tags" {
-  description = "Etiquetas adicionales para todos los recursos"
-  type        = map(string)
-  default     = {}
-}
+// === ARCHIVO: modules/network/variables.tf ===
+# Variables específicas del módulo de red (VPC, subredes, tablas de rutas, NAT Gateway)
+# Este módulo encapsula toda la configuración relacionada con la topología de red
+# incluyendo segmentación entre subredes públicas, privadas y de base de datos
 
-variable "s3_bucket_prefix" {
-  description = "Prefijo para nombres de buckets S3"
+variable "vpc_name" {
+  description = "Nombre identificador para la VPC"
   type        = string
 }
 
-variable "rds_instance_class" {
-  description = "Clase de instancia RDS para la base de datos de pagos"
+variable "vpc_cidr" {
+  description = "CIDR block principal de la VPC"
   type        = string
 }
 
-variable "rds_allocated_storage" {
-  description = "Almacenamiento allocated para RDS en GB"
-  type        = number
+variable "availability_zones" {
+  description = "Zonas de disponibilidad para las subredes"
+  type        = list(string)
 }
 
-variable "rds_multi_az" {
-  description = "Habilitar despliegue Multi-AZ para RDS"
+variable "public_subnet_cidrs" {
+  description = "Bloques CIDR para subredes públicas (con acceso a internet)"
+  type        = list(string)
+}
+
+variable "private_subnet_cidrs" {
+  description = "Bloques CIDR para subredes privadas (aplicaciones, sin acceso directo a internet)"
+  type        = list(string)
+}
+
+variable "database_subnet_cidrs" {
+  description = "Bloques CIDR para subredes de base de datos (aislamiento máximo)"
+  type        = list(string)
+}
+
+variable "enable_nat_gateway" {
+  description = "Determina si se crean NAT Gateways para permitir salida a internet desde subredes privadas"
+  type        = bool
+}
+
+variable "single_nat_gateway" {
+  description = "Si es true, se crea una única NAT Gateway en lugar de una por AZ (ahorra costos)"
+  type        = bool
+}
+
+variable "enable_vpn_gateway" {
+  description = "Habilita el Virtual Private Gateway para conexiones VPN site-to-site"
+  type        = bool
+  default     = false
+}
+
+variable "enable_dns_hostnames" {
+  description = "Habilita la resolución de DNS hostnames dentro de la VPC"
   type        = bool
   default     = true
 }
 
-variable "lambda_runtime" {
-  description = "Runtime para funciones Lambda"
+variable "enable_dns_support" {
+  description = "Habilita el soporte de DNS dentro de la VPC"
+  type        = bool
+  default     = true
+}
+
+variable "enable_transit_gateway" {
+  description = "Configura attachment al Transit Gateway para conectividad entre VPCs"
+  type        = bool
+  default     = false
+}
+
+variable "transit_gateway_id" {
+  description = "ID del Transit Gateway al cual conectar esta VPC"
   type        = string
-  default     = "python3.11"
+  default     = ""
 }
 
-variable "lambda_memory_size" {
-  description = "Memoria en MB para funciones Lambda"
+variable "map_public_ip_on_launch" {
+  description = "Asignar IP pública automáticamente a instancias en subredes públicas"
+  type        = bool
+  default     = true
+}
+
+variable "environment" {
+  description = "Ambiente de despliegue para etiquetado"
+  type        = string
+}
+
+variable "project_name" {
+  description = "Nombre del proyecto para etiquetado"
+  type        = string
+}
+
+variable "common_tags" {
+  description = "Tags comunes heredados del proyecto"
+  type        = map(string)
+}
+
+variable "nat_gateway_elastic_ips" {
+  description = "Cantidad de Elastic IPs para NAT Gateways (debe coincidir con número de AZs si single_nat_gateway es false)"
   type        = number
-  default     = 256
+  default     = 0
 }
 
-variable "lambda_timeout" {
-  description = "Timeout en segundos para funciones Lambda"
+variable "enable_flow_log" {
+  description = "Habilitar VPC Flow Logs para monitoreo de tráfico"
+  type        = bool
+  default     = true
+}
+
+variable "flow_log_destination_type" {
+  description = "Tipo de destino para flow logs: cloud-watch-logs, s3, o kinesis-data-firehose"
+  type        = string
+  default     = "cloud-watch-logs"
+}
+
+variable "flow_log_cloudwatch_log_group_name" {
+  description = "Nombre del Log Group en CloudWatch para flow logs"
+  type        = string
+  default     = ""
+}
+
+variable "flow_log_cloudwatch_log_group_arn" {
+  description = "ARN del Log Group de CloudWatch existente para flow logs"
+  type        = string
+  default     = ""
+}
+
+variable "flow_log_iam_role_arn" {
+  description = "ARN del rol IAM para publicación de flow logs"
+  type        = string
+  default     = ""
+}
+
+variable "flow_log_traffic_type" {
+  description = "Tipo de tráfico a registrar: ACCEPT, REJECT, o ALL"
+  type        = string
+  default     = "ALL"
+}
+
+variable "enable_classiclink" {
+  description = "Habilitar ClassicLink para compatibilidad con EC2-Classic"
+  type        = bool
+  default     = false
+}
+
+variable "enable_ipv6" {
+  description = "Habilitar IPv6 en la VPC"
+  type        = bool
+  default     = false
+}
+
+// === ARCHIVO: modules/security/variables.tf ===
+# Variables específicas del módulo de seguridad
+# Este módulo encapsula la configuración de IAM roles, políticas, security groups
+# y otros recursos de seguridad necesarios para el entorno de pagos
+
+variable "environment" {
+  description = "Ambiente de despliegue (dev, qa, prod)"
+  type        = string
+}
+
+variable "project_name" {
+  description = "Nombre del proyecto para identificación de recursos"
+  type        = string
+}
+
+variable "vpc_id" {
+  description = "ID de la VPC donde se aplicarán los security groups"
+  type        = string
+}
+
+variable "allowed_cidr_blocks" {
+  description = "Bloques CIDR autorizados para acceso a recursos"
+  type        = list(string)
+  default     = []
+}
+
+variable "common_tags" {
+  description = "Tags comunes aplicados a todos los recursos de seguridad"
+  type        = map(string)
+}
+
+variable "enable_iam_roles" {
+  description = "Habilitar la creación de roles IAM para los componentes"
+  type        = bool
+  default     = true
+}
+
+variable "enable_security_groups" {
+  description = "Habilitar la creación de security groups"
+  type        = bool
+  default     = true
+}
+
+variable "create_payment_gateway_role" {
+  description = "Crear rol IAM específico para el gateway de pagos"
+  type        = bool
+  default     = true
+}
+
+variable "create_settlement_role" {
+  description = "Crear rol IAM específico para el sistema de liquidación"
+  type        = bool
+  default     = true
+}
+
+variable "create_fraud_engine_role" {
+  description = "Crear rol IAM específico para el motor antifraude"
+  type        = bool
+  default     = true
+}
+
+variable "payment_gateway_policy" {
+  description = "Política personalizada para el gateway de pagos (JSON)"
+  type        = string
+  default     = ""
+}
+
+variable "settlement_policy" {
+  description = "Política personalizada para el sistema de liquidación (JSON)"
+  type        = string
+  default     = ""
+}
+
+variable "fraud_engine_policy" {
+  description = "Política personalizada para el motor antifraude (JSON)"
+  type        = string
+  default     = ""
+}
+
+variable "security_group_rules" {
+  description = "Definición de reglas de security groups personalizada"
+  type = object({
+    http_port      = number
+    https_port     = number
+    mysql_port     = number
+    postgres_port  = number
+    redis_port     = number
+    rabbitmq_port  = number
+    internal_port  = number
+    monitoring_port = number
+  })
+  default = {
+    http_port       = 80
+    https_port      = 443
+    mysql_port      = 3306
+    postgres_port   = 5432
+    redis_port      = 6379
+    rabbitmq_port   = 5672
+    internal_port   = 8080
+    monitoring_port = 9090
+  }
+}
+
+variable "allowed_ingress_ports" {
+  description = "Puertos que permiten tráfico entrante desde fuentes externas"
+  type        = list(number)
+  default     = [443, 22]
+}
+
+variable "enable_cloudtrail" {
+  description = "Habilitar CloudTrail para auditoría de eventos"
+  type        = bool
+  default     = true
+}
+
+variable "enable_guardduty" {
+  description = "Habilitar GuardDuty para detección de amenazas"
+  type        = bool
+  default     = false
+}
+
+variable "enable_security_hub" {
+  description = "Habilitar Security Hub para consolidación de hallazgos"
+  type        = bool
+  default     = false
+}
+
+variable "kms_key_administrators" {
+  description = "ARNs de usuarios que pueden administrar la clave KMS"
+  type        = list(string)
+  default     = []
+}
+
+variable "kms_key_users" {
+  description = "ARNs de usuarios que pueden usar la clave KMS para cifrado/descifrado"
+  type        = list(string)
+  default     = []
+}
+
+variable "enable_secrets_manager" {
+  description = "Habilitar Secrets Manager para gestión de credenciales"
+  type        = bool
+  default     = true
+}
+
+variable "secrets_manager_secret_names" {
+  description = "Nombres de los secrets a crear en Secrets Manager"
+  type        = list(string)
+  default     = []
+}
+
+variable "enable_waf" {
+  description = "Habilitar WAF para protección de aplicaciones web"
+  type        = bool
+  default     = false
+}
+
+variable "waf_web_acl_rules" {
+  description = "Configuración de reglas de WAF Web ACL"
+  type        = any
+  default     = {}
+}
+
+variable "enable_deletion_protection" {
+  description = "Habilitar protección contra eliminación en recursos críticos"
+  type        = bool
+  default     = true
+}
+
+// === ARCHIVO: modules/compute/variables.tf ===
+# Variables específicas del módulo de cómputo
+# Este módulo encapsula la configuración de instancias EC2, Auto Scaling Groups,
+# Application Load Balancers y otros recursos de procesamiento
+
+variable "environment" {
+  description = "Ambiente de despliegue (dev, qa, prod)"
+  type        = string
+}
+
+variable "project_name" {
+  description = "Nombre del proyecto para identificación de recursos"
+  type        = string
+}
+
+variable "vpc_id" {
+  description = "ID de la VPC donde se desplegarán los recursos de cómputo"
+  type        = string
+}
+
+variable "public_subnet_ids" {
+  description = "IDs de subredes públicas para el ALB"
+  type        = list(string)
+}
+
+variable "private_subnet_ids" {
+  description = "IDs de subredes privadas para las instancias de aplicación"
+  type        = list(string)
+}
+
+variable "common_tags" {
+  description = "Tags comunes aplicados a todos los recursos de cómputo"
+  type        = map(string)
+}
+
+variable "instance_type" {
+  description = "Tipo de instancia EC2 para los servidores de aplicación"
+  type        = string
+  default     = "t3.medium"
+}
+
+variable "ami_id" {
+  description = "ID de la AMI personalizada para las instancias"
+  type        = string
+  default     = ""
+}
+
+variable "ami_owner" {
+  description = "Propietario de la AMI (aws, self, o account ID)"
+  type        = string
+  default     = "self"
+}
+
+variable "instance_key_name" {
+  description = "Nombre del par de claves SSH para acceso a instancias"
+  type        = string
+  default     = ""
+}
+
+variable "min_size" {
+  description = "Número mínimo de instancias en el Auto Scaling Group"
   type        = number
-  default     = 30
+  default     = 2
 }
 
-variable "alb_timeout" {
-  description = "Timeout de respuesta del ALB en segundos"
+variable "max_size" {
+  description = "Número máximo de instancias en el Auto Scaling Group"
   type        = number
-  default     = 60
+  default     = 10
 }
 
-variable "alb_deletion_protection" {
+variable "desired_capacity" {
+  description = "Número deseado de instancias en el Auto Scaling Group"
+  type        = number
+  default     = 3
+}
+
+variable "target_group_arns" {
+  description = "ARNs de los target groups para el ALB"
+  type        = list(string)
+  default     = []
+}
+
+variable "alb_name" {
+  description = "Nombre del Application Load Balancer"
+  type        = string
+  default     = ""
+}
+
+variable "alb_type" {
+  description = "Tipo de ALB: application, network, o gateway"
+  type        = string
+  default     = "application"
+}
+
+variable "alb_internal" {
+  description = "Determina si el ALB es interno (true) o público (false)"
+  type        = bool
+  default     = false
+}
+
+variable "enable_deletion_protection" {
   description = "Habilitar protección contra eliminación del ALB"
   type        = bool
   default     = true
 }
 
-variable "kms_key_administrators" {
-  description = "ARNs de usuarios que pueden administrar claves KMS"
-  type        = list(string)
-}
-
-variable "kms_key_users" {
-  description = "ARNs de usuarios que pueden usar claves KMS"
-  type        = list(string)
-}
-
-variable "eks_cluster_endpoint" {
-  description = "Endpoint del cluster EKS"
-  type        = string
-  default     = ""
-}
-
-variable "eks_cluster_ca_cert" {
-  description = "Certificado CA del cluster EKS (base64)"
-  type        = string
-  default     = ""
-}
-
-variable "eks_cluster_token" {
-  description = "Token de acceso al cluster EKS"
-  type        = string
-  default     = ""
-  sensitive   = true
-}
-
-variable "enable_waf" {
-  description = "Habilitar AWS WAF para protección de aplicaciones"
-  type        = bool
-  default     = false
-}
-
-variable "cloudwatch_log_retention_days" {
-  description = "Días de retención para logs de CloudWatch"
-  type        = number
-  default     = 90
-  validation {
-    condition     = var.cloudwatch_log_retention_days >= 1 && var.cloudwatch_log_retention_days <= 365
-    error_message = "Los días de retención deben estar entre 1 y 365"
-  }
-}
-
-variable "enable_guardduty" {
-  description = "Habilitar Amazon GuardDuty para detección de amenazas"
-  type        = bool
-  default     = false
-}
-
-variable "rto_minutes" {
-  description = "Recovery Time Objective en minutos"
+variable "alb_idle_timeout" {
+  description = "Tiempo de espera inactivo del ALB en segundos"
   type        = number
   default     = 60
 }
 
-variable "rpo_minutes" {
-  description = "Recovery Point Objective en minutos"
+variable "enable_cross_zone_load_balancing" {
+  description = "Habilitar balanceo de carga entre AZs"
+  type        = bool
+  default     = true
+}
+
+variable "health_check_path" {
+  description = "Path para health checks del ALB"
+  type        = string
+  default     = "/health"
+}
+
+variable "health_check_interval" {
+  description = "Intervalo entre health checks en segundos"
   type        = number
-  default     = 15
+  default     = 30
+}
+
+variable "health_check_timeout" {
+  description = "Timeout de health check en segundos"
+  type        = number
+  default     = 5
+}
+
+variable "healthy_threshold" {
+  description = "Número de respuestas exitosas para considerar instancia saludable"
+  type        = number
+  default     = 2
+}
+
+variable "unhealthy_threshold" {
+  description = "Número de respuestas fallidas para considerar instancia no saludable"
+  type        = number
+  default     = 2
+}
+
+variable "root_volume_size" {
+  description = "Tamaño del volumen raíz en GB"
+  type        = number
+  default     = 50
+}
+
+variable "root_volume_type" {
+  description = "Tipo de volumen raíz: gp2, gp3, io1, io2"
+  type        = string
+  default     = "gp3"
+}
+
+variable "root_volume_encrypted" {
+  description = "Cifrar volumen raíz"
+  type        = bool
+  default     = true
+}
+
+variable "additional_ebs_volume_size" {
+  description = "Tamaño de volumen EBS adicional en GB"
+  type        = number
+  default     = 0
+}
+
+variable "additional_ebs_volume_type" {
+  description = "Tipo de volumen EBS adicional"
+  type        = string
+  default     = "gp3"
+}
+
+variable "user_data" {
+  description = "Script de inicialización de instancias (base64)"
+  type        = string
+  default     = ""
+}
+
+variable "iam_instance_profile" {
+  description = "Nombre del IAM instance profile para las instancias"
+  type        = string
+  default     = ""
+}
+
+variable "enable_monitoring" {
+  description = "Habilitar monitoreo detallado de instancias"
+  type        = bool
+  default     = true
+}
+
+variable "enable_termination_protection" {
+  description = "Habilitar protección contra terminación de instancias"
+  type        = bool
+  default     = false
+}
+
+variable "associate_public_ip_address" {
+  description = "Asociar IP pública a instancias (solo en subredes públicas)"
+  type        = bool
+  default     = false
+}
+
+variable "placement_tenancy" {
+  description = "Tenancy de las instancias: default o dedicated"
+  type        = string
+  default     = "default"
+}
+
+variable "enable_spot_instances" {
+  description = "Habilitar uso de instancias spot para reducir costos"
+  type        = bool
+  default     = false
+}
+
+variable "spot_instance_max_price" {
+  description = "Precio máximo para instancias spot (en USD por hora)"
+  type        = string
+  default     = ""
+}
+
+variable "asg_metrics" {
+  description = "Métricas adicionales a收集 para el ASG"
+  type        = list(string)
+  default     = []
+}
+
+variable "asg_suspended_processes" {
+  description = "Procesos suspendidos del ASG"
+  type        = list(string)
+  default     = []
+}
+
+variable "default_cooldown" {
+  description = "Cooldown predeterminado del ASG en segundos"
+  type        = number
+  default     = 300
+}
+
+variable "health_check_type" {
+  description = "Tipo de health check: EC2 o ELB"
+  type        = string
+  default     = "ELB"
+}
+
+
+// === ARCHIVO: backend.tf ===
+terraform {
+  backend "s3" {
+    bucket = var.backend_bucket
+    key    = "${var.environment}/terraform.tfstate"
+    region = var.aws_region
+    encrypt = true
+    dynamodb_table = var.backend_dynamodb_table
+  }
 }
 
 // === ARCHIVO: main.tf ===
-terraform {
-  required_version = ">= 1.7.5"
-
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-  }
-}
-
-provider "aws" {
-  region = var.aws_region
-
-  default_tags {
-    tags = {
-      Project     = "red-pagos-segura"
-      ManagedBy   = "terraform"
-      Environment = var.environment
-      CostCenter  = var.cost_center
-    }
-  }
-}
-
-# =============================================================================
-# VPC PRINCIPAL - Red virtual aislada para el entorno de pagos
-# =============================================================================
-resource "aws_vpc" "main" {
-  cidr_block           = var.vpc_cidr
-  enable_dns_hostnames = true
-  enable_dns_support   = true
-
-  tags = {
-    Name        = "${var.environment}-vpc-principal"
-    Description = "VPC principal para el entorno de pagos - ${var.environment}"
-    Tier        = "network"
-  }
-}
-
-# =============================================================================
-# SUBREDES PÚBLICAS - Servicios de monitoreo y auditoría
-# Segmentadas por AZ para alta disponibilidad
-# =============================================================================
-resource "aws_subnet" "public_payments" {
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = var.subnet_public_payments_cidr
-  availability_zone       = data.aws_availability_zones.available.names[0]
-  map_public_ip_on_launch = true
-
-  tags = {
-    Name        = "${var.environment}-public-payments-az1"
-    Description = "Subred pública para servicios de pagos"
-    Type        = "public"
-    Service     = "payments"
-    Tier        = "public"
-  }
-}
-
-resource "aws_subnet" "public_payments_az2" {
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = var.subnet_public_payments_cidr_az2
-  availability_zone       = data.aws_availability_zones.available.names[1]
-  map_public_ip_on_launch = true
-
-  tags = {
-    Name        = "${var.environment}-public-payments-az2"
-    Description = "Subred pública para servicios de pagos - AZ2"
-    Type        = "public"
-    Service     = "payments"
-    Tier        = "public"
-  }
-}
-
-resource "aws_subnet" "public_monitoring" {
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = var.subnet_public_monitoring_cidr
-  availability_zone       = data.aws_availability_zones.available.names[0]
-  map_public_ip_on_launch = true
-
-  tags = {
-    Name        = "${var.environment}-public-monitoring-az1"
-    Description = "Subred pública para servicios de monitoreo"
-    Type        = "public"
-    Service     = "monitoring"
-    Tier        = "public"
-  }
-}
-
-resource "aws_subnet" "public_monitoring_az2" {
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = var.subnet_public_monitoring_cidr_az2
-  availability_zone       = data.aws_availability_zones.available.names[1]
-  map_public_ip_on_launch = true
-
-  tags = {
-    Name        = "${var.environment}-public-monitoring-az2"
-    Description = "Subred pública para servicios de monitoreo - AZ2"
-    Type        = "public"
-    Service     = "monitoring"
-    Tier        = "public"
-  }
-}
-
-# =============================================================================
-# SUBREDES PRIVADAS - Servicios de pago, base de datos y procesamiento
-# Sin acceso directo desde internet
-# =============================================================================
-resource "aws_subnet" "private_payments" {
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = var.subnet_private_payments_cidr
-  availability_zone = data.aws_availability_zones.available.names[0]
-
-  tags = {
-    Name        = "${var.environment}-private-payments-az1"
-    Description = "Subred privada para servicios de pago"
-    Type        = "private"
-    Service     = "payments"
-    Tier        = "application"
-  }
-}
-
-resource "aws_subnet" "private_payments_az2" {
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = var.subnet_private_payments_cidr_az2
-  availability_zone = data.aws_availability_zones.available.names[1]
-
-  tags = {
-    Name        = "${var.environment}-private-payments-az2"
-    Description = "Subred privada para servicios de pago - AZ2"
-    Type        = "private"
-    Service     = "payments"
-    Tier        = "application"
-  }
-}
-
-resource "aws_subnet" "private_database" {
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = var.subnet_private_database_cidr
-  availability_zone = data.aws_availability_zones.available.names[0]
-
-  tags = {
-    Name        = "${var.environment}-private-database-az1"
-    Description = "Subred privada para bases de datos"
-    Type        = "private"
-    Service     = "database"
-    Tier        = "data"
-  }
-}
-
-resource "aws_subnet" "private_database_az2" {
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = var.subnet_private_database_cidr_az2
-  availability_zone = data.aws_availability_zones.available.names[1]
-
-  tags = {
-    Name        = "${var.environment}-private-database-az2"
-    Description = "Subred privada para bases de datos - AZ2"
-    Type        = "private"
-    Service     = "database"
-    Tier        = "data"
-  }
-}
-
-resource "aws_subnet" "private_audit" {
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = var.subnet_private_audit_cidr
-  availability_zone = data.aws_availability_zones.available.names[0]
-
-  tags = {
-    Name        = "${var.environment}-private-audit-az1"
-    Description = "Subred privada para servicios de auditoría"
-    Type        = "private"
-    Service     = "audit"
-    Tier        = "application"
-  }
-}
-
-resource "aws_subnet" "private_audit_az2" {
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = var.subnet_private_audit_cidr_az2
-  availability_zone = data.aws_availability_zones.available.names[1]
-
-  tags = {
-    Name        = "${var.environment}-private-audit-az2"
-    Description = "Subred privada para servicios de auditoría - AZ2"
-    Type        = "private"
-    Service     = "audit"
-    Tier        = "application"
-  }
-}
-
-# =============================================================================
-# GATEWAY DE INTERNET - Conexión desde subredes públicas a internet
-# =============================================================================
-resource "aws_internet_gateway" "main" {
-  vpc_id = aws_vpc.main.id
-
-  tags = {
-    Name        = "${var.environment}-igw-principal"
-    Description = "Internet Gateway para acceso a internet desde subredes públicas"
-  }
-}
-
-# =============================================================================
-# NAT GATEWAYS - Permite salida a internet desde subredes privadas
-# Sin permitir ingresos de tráfico desde internet
-# Desplegado en subredes públicas para alta disponibilidad
-# =============================================================================
-resource "aws_nat_gateway" "main_az1" {
-  allocation_id = aws_eip.nat_eip_az1.id
-  subnet_id     = aws_subnet.public_payments.id
-
-  tags = {
-    Name        = "${var.environment}-nat-gateway-az1"
-    Description = "NAT Gateway para tráfico saliente desde subredes privadas - AZ1"
-  }
-
-  depends_on = [aws_internet_gateway.main]
-}
-
-resource "aws_nat_gateway" "main_az2" {
-  allocation_id = aws_eip.nat_eip_az2.id
-  subnet_id     = aws_subnet.public_payments_az2.id
-
-  tags = {
-    Name        = "${var.environment}-nat-gateway-az2"
-    Description = "NAT Gateway para tráfico saliente desde subredes privadas - AZ2"
-  }
-
-  depends_on = [aws_internet_gateway.main]
-}
-
-# =============================================================================
-# ELASTIC IPs - Direcciones IP elásticas para NAT Gateways
-# =============================================================================
-resource "aws_eip" "nat_eip_az1" {
-  domain = "vpc"
-
-  tags = {
-    Name        = "${var.environment}-eip-nat-az1"
-    Description = "EIP para NAT Gateway en AZ1"
-  }
-}
-
-resource "aws_eip" "nat_eip_az2" {
-  domain = "vpc"
-
-  tags = {
-    Name        = "${var.environment}-eip-nat-az2"
-    Description = "EIP para NAT Gateway en AZ2"
-  }
-}
-
-# =============================================================================
-# TABLAS DE RUTAS - Control de tráfico de red
-# =============================================================================
-resource "aws_route_table" "public" {
-  vpc_id = aws_vpc.main.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.main.id
-  }
-
-  tags = {
-    Name        = "${var.environment}-rt-publica"
-    Description = "Tabla de rutas para subredes públicas - acceso a internet"
-  }
-}
-
-resource "aws_route_table" "private_az1" {
-  vpc_id = aws_vpc.main.id
-
-  route {
-    cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.main_az1.id
-  }
-
-  tags = {
-    Name        = "${var.environment}-rt-privada-az1"
-    Description = "Tabla de rutas para subredes privadas AZ1 - salida via NAT"
-  }
-}
-
-resource "aws_route_table" "private_az2" {
-  vpc_id = aws_vpc.main.id
-
-  route {
-    cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.main_az2.id
-  }
-
-  tags = {
-    Name        = "${var.environment}-rt-privada-az2"
-    Description = "Tabla de rutas para subredes privadas AZ2 - salida via NAT"
-  }
-}
-
-# =============================================================================
-# ASOCIACIONES DE TABLAS DE RUTAS - Conectar subredes a tablas de rutas
-# =============================================================================
-resource "aws_route_table_association" "public_payments" {
-  subnet_id      = aws_subnet.public_payments.id
-  route_table_id = aws_route_table.public.id
-}
-
-resource "aws_route_table_association" "public_payments_az2" {
-  subnet_id      = aws_subnet.public_payments_az2.id
-  route_table_id = aws_route_table.public.id
-}
-
-resource "aws_route_table_association" "public_monitoring" {
-  subnet_id      = aws_subnet.public_monitoring.id
-  route_table_id = aws_route_table.public.id
-}
-
-resource "aws_route_table_association" "public_monitoring_az2" {
-  subnet_id      = aws_subnet.public_monitoring_az2.id
-  route_table_id = aws_route_table.public.id
-}
-
-resource "aws_route_table_association" "private_payments" {
-  subnet_id      = aws_subnet.private_payments.id
-  route_table_id = aws_route_table.private_az1.id
-}
-
-resource "aws_route_table_association" "private_payments_az2" {
-  subnet_id      = aws_subnet.private_payments_az2.id
-  route_table_id = aws_route_table.private_az2.id
-}
-
-resource "aws_route_table_association" "private_database" {
-  subnet_id      = aws_subnet.private_database.id
-  route_table_id = aws_route_table.private_az1.id
-}
-
-resource "aws_route_table_association" "private_database_az2" {
-  subnet_id      = aws_subnet.private_database_az2.id
-  route_table_id = aws_route_table.private_az2.id
-}
-
-resource "aws_route_table_association" "private_audit" {
-  subnet_id      = aws_subnet.private_audit.id
-  route_table_id = aws_route_table.private_az1.id
-}
-
-resource "aws_route_table_association" "private_audit_az2" {
-  subnet_id      = aws_subnet.private_audit_az2.id
-  route_table_id = aws_route_table.private_az2.id
-}
-
-# =============================================================================
-# DATA SOURCES - Información de disponibilidad de AZs
-# =============================================================================
-data "aws_availability_zones" "available" {
-  state = "available"
-}
-
-// === ARCHIVO: outputs.tf ===
-# =============================================================================
-# OUTPUTS DE VPC - Identificadores y configuración de la red virtual
-# =============================================================================
-output "vpc_id" {
-  description = "ID de la VPC principal"
-  value       = aws_vpc.main.id
-}
-
-output "vpc_cidr" {
-  description = "Bloque CIDR de la VPC principal"
-  value       = aws_vpc.main.cidr_block
-}
-
-output "vpc_dns_hostnames_enabled" {
-  description = "Indicador de DNS hostnames habilitado"
-  value       = aws_vpc.main.enable_dns_hostnames
-}
-
-output "vpc_dns_support_enabled" {
-  description = "Indicador de DNS support habilitado"
-  value       = aws_vpc.main.enable_dns_support
-}
-
-# =============================================================================
-# OUTPUTS DE SUBREDES PÚBLICAS
-# =============================================================================
-output "subnet_public_payments_id" {
-  description = "ID de subred pública de pagos AZ1"
-  value       = aws_subnet.public_payments.id
-}
-
-output "subnet_public_payments_az2_id" {
-  description = "ID de subred pública de pagos AZ2"
-  value       = aws_subnet.public_payments_az2.id
-}
-
-output "subnet_public_monitoring_id" {
-  description = "ID de subred pública de monitoreo AZ1"
-  value       = aws_subnet.public_monitoring.id
-}
-
-output "subnet_public_monitoring_az2_id" {
-  description = "ID de subred pública de monitoreo AZ2"
-  value       = aws_subnet.public_monitoring_az2.id
-}
-
-output "public_subnet_ids" {
-  description = "Lista de IDs de todas las subredes públicas"
-  value       = [aws_subnet.public_payments.id, aws_subnet.public_payments_az2.id, aws_subnet.public_monitoring.id, aws_subnet.public_monitoring_az2.id]
-}
-
-output "public_subnets_cidrs" {
-  description = "Lista de bloques CIDR de todas las subredes públicas"
-  value       = [var.subnet_public_payments_cidr, var.subnet_public_payments_cidr_az2, var.subnet_public_monitoring_cidr, var.subnet_public_monitoring_cidr_az2]
-}
-
-# =============================================================================
-# OUTPUTS DE SUBREDES PRIVADAS
-# =============================================================================
-output "subnet_private_payments_id" {
-  description = "ID de subred privada de pagos AZ1"
-  value       = aws_subnet.private_payments.id
-}
-
-output "subnet_private_payments_az2_id" {
-  description = "ID de subred privada de pagos AZ2"
-  value       = aws_subnet.private_payments_az2.id
-}
-
-output "subnet_private_database_id" {
-  description = "ID de subred privada de base de datos AZ1"
-  value       = aws_subnet.private_database.id
-}
-
-output "subnet_private_database_az2_id" {
-  description = "ID de subred privada de base de datos AZ2"
-  value       = aws_subnet.private_database_az2.id
-}
-
-output "subnet_private_audit_id" {
-  description = "ID de subred privada de auditoría AZ1"
-  value       = aws_subnet.private_audit.id
-}
-
-output "subnet_private_audit_az2_id" {
-  description = "ID de subred privada de auditoría AZ2"
-  value       = aws_subnet.private_audit_az2.id
-}
-
-output "private_subnet_ids" {
-  description = "Lista de IDs de todas las subredes privadas"
-  value       = [aws_subnet.private_payments.id, aws_subnet.private_payments_az2.id, aws_subnet.private_database.id, aws_subnet.private_database_az2.id, aws_subnet.private_audit.id, aws_subnet.private_audit_az2.id]
-}
-
-output "private_subnets_cidrs" {
-  description = "Lista de bloques CIDR de todas las subredes privadas"
-  value       = [var.subnet_private_payments_cidr, var.subnet_private_payments_cidr_az2, var.subnet_private_database_cidr, var.subnet_private_database_cidr_az2, var.subnet_private_audit_cidr, var.subnet_private_audit_cidr_az2]
-}
-
-# =============================================================================
-# OUTPUTS DE GATEWAYS
-# =============================================================================
-output "internet_gateway_id" {
-  description = "ID del Internet Gateway"
-  value       = aws_internet_gateway.main.id
-}
-
-output "nat_gateway_az1_id" {
-  description = "ID del NAT Gateway AZ1"
-  value       = aws_nat_gateway.main_az1.id
-}
-
-output "nat_gateway_az2_id" {
-  description = "ID del NAT Gateway AZ2"
-  value       = aws_nat_gateway.main_az2.id
-}
-
-output "nat_gateway_az1_ip" {
-  description = "IP elástica del NAT Gateway AZ1"
-  value       = aws_eip.nat_eip_az1.public_ip
-}
-
-output "nat_gateway_az2_ip" {
-  description = "IP elástica del NAT Gateway AZ2"
-  value       = aws_eip.nat_eip_az2.public_ip
-}
-
-output "nat_gateway_ids" {
-  description = "Lista de IDs de todos los NAT Gateways"
-  value       = [aws_nat_gateway.main_az1.id, aws_nat_gateway.main_az2.id]
-}
-
-# =============================================================================
-# OUTPUTS DE TABLAS DE RUTAS
-# =============================================================================
-output "route_table_public_id" {
-  description = "ID de la tabla de rutas pública"
-  value       = aws_route_table.public.id
-}
-
-output "route_table_private_az1_id" {
-  description = "ID de la tabla de rutas privada AZ1"
-  value       = aws_route_table.private_az1.id
-}
-
-output "route_table_private_az2_id" {
-  description = "ID de la tabla de rutas privada AZ2"
-  value       = aws_route_table.private_az2.id
-}
-
-output "all_route_table_ids" {
-  description = "Lista de IDs de todas las tablas de rutas"
-  value       = [aws_route_table.public.id, aws_route_table.private_az1.id, aws_route_table.private_az2.id]
-}
-
-# =============================================================================
-# OUTPUTS DE ARQUITECTURA - Para integración con otros módulos
-# =============================================================================
-output "availability_zones" {
-  description = "Lista de AZs disponibles utilizadas"
-  value       = data.aws_availability_zones.available.names
-}
-
-output "network_architecture" {
-  description = "Descripción de la arquitectura de red"
-  value = {
-    vpc_cidr               = aws_vpc.main.cidr_block
-    public_subnets         = "4 subredes públicas en 2 AZs (pagos y monitoreo)"
-    private_subnets        = "6 subredes privadas en 2 AZs (pagos, database, audit)"
-    internet_gateway       = "1 IGW para acceso público"
-    nat_gateways           = "2 NAT Gateways (uno por AZ) para salida privada"
-    high_availability      = "Despliegue multi-AZ para tolerancia a fallos"
-    isolation_level        = "Segmentación completa entre tiers públicos y privados"
-    payment_services_subnets = [aws_subnet.private_payments.id, aws_subnet.private_payments_az2.id]
-    database_subnets       = [aws_subnet.private_database.id, aws_subnet.private_database_az2.id]
-    audit_subnets          = [aws_subnet.private_audit.id, aws_subnet.private_audit_az2.id]
-  }
-}
-
-// === ARCHIVO: backend.tf ===
-# =============================================================================
-# CONFIGURACIÓN DEL BACKEND REMOTO
-# Almacena el estado de Terraform en S3 con bloqueo en DynamoDB
-# =============================================================================
-terraform {
-  backend "s3" {
-    bucket         = "${var.project_name}-terraform-state-${var.environment}"
-    key            = "${var.environment}/network/terraform.tfstate"
-    region         = var.aws_region
-    encrypt        = true
-    dynamodb_table = "${var.project_name}-terraform-locks"
-
-    # Configuración de versioning del bucket de estado
-    versioning = true
-
-    # Prevent accidental deletion of state
-    skip_bucket_versioning = false
-  }
-}
-
-# =============================================================================
-# RECURSOS DE INFRAESTRUCTURA PARA EL BACKEND
-# Estos recursos deben existir antes de usar el backend remoto
-# =============================================================================
-
-# Bucket S3 para almacenar el estado de Terraform
-resource "aws_s3_bucket" "terraform_state" {
-  bucket = "${var.project_name}-terraform-state-${var.environment}"
-
-  tags = {
-    Name        = "${var.project_name}-terraform-state-${var.environment}"
-    Description = "Bucket para almacenar estado de Terraform"
+locals {
+  common_tags = {
     Environment = var.environment
-    Project     = var.project_name
+    Project     = "pagos-seguro"
+    ManagedBy   = "terraform"
+    Owner       = "cloudops-team"
+    CostCenter  = "finanzas"
+    Compliance  = "pci-dss"
+  }
+
+  vpc_cidr = var.vpc_cidr
+
+  availability_zones = ["${var.aws_region}a", "${var.aws_region}b", "${var.aws_region}c"]
+
+  public_subnet_cidrs = [for i in range(length(local.availability_zones)) : cidrsubnet(local.vpc_cidr, 4, i)]
+
+  private_subnet_app_cidrs = [for i in range(length(local.availability_zones)) : cidrsubnet(local.vpc_cidr, 4, length(local.availability_zones) + i)]
+
+  private_subnet_data_cidrs = [for i in range(length(local.availability_zones)) : cidrsubnet(local.vpc_cidr, 4, 2 * length(local.availability_zones) + i)]
+
+  private_subnet_mgmt_cidrs = [for i in range(length(local.availability_zones)) : cidrsubnet(local.vpc_cidr, 4, 3 * length(local.availability_zones) + i)]
+}
+
+module "network" {
+  source = "./modules/network"
+
+  environment           = var.environment
+  vpc_cidr              = local.vpc_cidr
+  availability_zones   = local.availability_zones
+  public_subnet_cidrs  = local.public_subnet_cidrs
+  private_subnet_app_cidrs  = local.private_subnet_app_cidrs
+  private_subnet_data_cidrs = local.private_subnet_data_cidrs
+  private_subnet_mgmt_cidrs = local.private_subnet_mgmt_cidrs
+  common_tags          = local.common_tags
+
+  nat_gateway_elastic_ips = var.nat_gateway_elastic_ips
+
+  enable_flow_log = true
+  flow_log_destination_type = "cloud-watch-logs"
+  flow_log_format = "${version} ${account-id} ${interface-id} ${srcaddr} ${dstaddr} ${srcport} ${dstport} ${protocol} ${packets} ${bytes} ${start} ${end} ${action} ${log-status}"
+}
+
+module "security" {
+  source = "./modules/security"
+
+  environment          = var.environment
+  vpc_id               = module.network.vpc_id
+  common_tags          = local.common_tags
+  allowed_cidr_blocks  = var.admin_cidr_blocks
+
+  enable_guardduty           = var.enable_guardduty
+  enable_security_hub        = var.enable_security_hub
+  enable_config              = var.enable_config
+  enable_cloudtrail          = var.enable_cloudtrail
+
+  security_hub_standards = ["aws-foundational-security-best-standards", "pci-dss"]
+
+  cloudtrail_bucket_name = var.cloudtrail_bucket_name
+  cloudtrail_log_prefix  = "audit-logs"
+
+  s3_buckets_to_protect = [
+    "pagos-${var.environment}-audit-logs",
+    "pagos-${var.environment}-backups",
+    "pagos-${var.environment}-application-data"
+  ]
+
+  kms_key_administrators = var.kms_administrator_arns
+  kms_key_users          = var.kms_user_arns
+
+  enable_deletion_window = true
+  deletion_window_days   = 7
+}
+
+module "compute" {
+  source = "./modules/compute"
+
+  environment              = var.environment
+  vpc_id                   = module.network.vpc_id
+  common_tags              = local.common_tags
+
+  public_subnet_ids        = module.network.public_subnet_ids
+  private_subnet_app_ids   = module.network.private_subnet_app_ids
+  private_subnet_data_ids  = module.network.private_subnet_data_ids
+  private_subnet_mgmt_ids  = module.network.private_subnet_mgmt_ids
+
+  instance_type            = var.instance_type
+  instance_tenancy         = var.instance_tenancy
+
+  key_name                 = var.ssh_key_name
+
+  asg_min_size             = var.asg_min_size
+  asg_max_size             = var.asg_max_size
+  asg_desired_capacity     = var.asg_desired_capacity
+
+  asg_health_check_type    = "ELB"
+  asg_health_check_period  = 60
+
+  asg_metrics_collection   = ["GroupDesiredCapacity", "GroupInServiceCapacity", "GroupPendingCapacity", "GroupTerminatingCapacity", "GroupTotalCapacity"]
+
+  elb_type                 = "application"
+  elb_scheme               = "internet-facing"
+  elb_deletion_protection  = true
+  elb_enable_cross_zone    = true
+
+  elb_access_logs_bucket   = var.elb_access_logs_bucket
+
+  target_instance_port     = 443
+  target_instance_protocol = "HTTPS"
+
+  health_check_path        = "/health"
+  health_check_interval    = 30
+  health_check_timeout     = 5
+  healthy_threshold        = 2
+  unhealthy_threshold      = 3
+
+  certificate_arn          = var.certificate_arn
+
+  asg_instance_security_groups = [module.security.instance_security_group_id]
+
+  ebs_volume_size          = var.ebs_volume_size
+  ebs_volume_type          = "gp3"
+  ebs_encrypted            = true
+
+  ebs_kms_key_id           = module.security.ebs_kms_key_arn
+
+  enable_monitoring        = true
+  detailed_monitoring      = true
+
+  lifecycle_hook_name      = "instance-termination-hook"
+  lifecycle_hook_timeout   = 300
+
+  scaling_policies = [
+    {
+      name           = "scale-out-policy"
+      adjustment_type = "ChangeInCapacity"
+      scaling_adjustment = 2
+      cooldown       = 300
+      metric_type    = "ASGAverageCPUUtilization"
+      threshold      = 70
+      statistic      = "Average"
+      comparison_operator = "GreaterThanThreshold"
+      evaluation_periods  = 2
+      period          = 60
+      action_type     = "add"
+    },
+    {
+      name           = "scale-in-policy"
+      adjustment_type = "ChangeInCapacity"
+      scaling_adjustment = -1
+      cooldown       = 300
+      metric_type    = "ASGAverageCPUUtilization"
+      threshold      = 30
+      statistic      = "Average"
+      comparison_operator = "LessThanThreshold"
+      evaluation_periods  = 2
+      period          = 60
+      action_type     = "remove"
+    }
+  ]
+}
+
+resource "aws_kms_key" "application" {
+  description             = "KMS key for application data encryption in ${var.environment}"
+  deletion_window_in_days = 7
+  enable_key_rotation     = true
+  policy                  = data.aws_iam_policy_document.kms_application_policy.json
+
+  tags = merge(local.common_tags, {
+    Name        = "application-kms-key-${var.environment}"
+    Encryption  = "required"
+  })
+}
+
+data "aws_iam_policy_document" "kms_application_policy" {
+  statement {
+    sid = "Enable IAM User Permissions"
+    effect = "Allow"
+    principals {
+      type        = "AWS"
+      identifiers = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"]
+    }
+    actions   = ["kms:*"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid = "Allow use of the key"
+    effect = "Allow"
+    principals {
+      type        = "AWS"
+      identifiers = var.kms_user_arns
+    }
+    actions = [
+      "kms:Encrypt",
+      "kms:Decrypt",
+      "kms:ReEncrypt*",
+      "kms:GenerateDataKey*",
+      "kms:DescribeKey",
+      "kms:ListAliases"
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    sid = "Allow key administrators"
+    effect = "Allow"
+    principals {
+      type        = "AWS"
+      identifiers = var.kms_administrator_arns
+    }
+    actions = [
+      "kms:Create*",
+      "kms:Delete*",
+      "kms:Update*",
+      "kms:Put*",
+      "kms:Revoke*",
+      "kms:Enable*",
+      "kms:Disable*",
+      "kms:List*",
+      "kms:Describe*",
+      "kms:TagResource",
+      "kms:UntagResource"
+    ]
+    resources = ["*"]
   }
 }
 
-# Versioning del bucket de estado
-resource "aws_s3_bucket_versioning" "terraform_state" {
-  bucket = aws_s3_bucket.terraform_state.id
+data "aws_caller_identity" "current" {}
+
+resource "aws_s3_bucket" "application_logs" {
+  bucket = "pagos-${var.environment}-application-logs-${data.aws_caller_identity.current.account_id}"
+
+  tags = merge(local.common_tags, {
+    Name        = "application-logs-bucket"
+    Purpose     = "application-logging"
+    Retention   = "90-days"
+  })
+}
+
+resource "aws_s3_bucket_versioning" "application_logs" {
+  bucket = aws_s3_bucket.application_logs.id
 
   versioning_configuration {
     status = "Enabled"
   }
 }
 
-# Bloqueo público al bucket
-resource "aws_s3_bucket_public_access_block" "terraform_state" {
-  bucket = aws_s3_bucket.terraform_state.id
+resource "aws_s3_bucket_server_side_encryption_configuration" "application_logs" {
+  bucket = aws_s3_bucket.application_logs.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm     = "aws:kms"
+      kms_master_key_id = aws_kms_key.application.arn
+    }
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "application_logs" {
+  bucket = aws_s3_bucket.application_logs.id
 
   block_public_acls       = true
   block_public_policy     = true
@@ -1099,509 +1189,1364 @@ resource "aws_s3_bucket_public_access_block" "terraform_state" {
   restrict_public_buckets = true
 }
 
-# Servidor de encriptación del bucket con KMS
-resource "aws_s3_bucket_server_side_encryption_configuration" "terraform_state" {
-  bucket = aws_s3_bucket.terraform_state.id
+resource "aws_s3_bucket_lifecycle_configuration" "application_logs" {
+  bucket = aws_s3_bucket.application_logs.id
 
   rule {
-    apply_server_side_encryption_by_default {
-      kms_master_key_id = aws_kms_key.terraform_state.arn
-      sse_algorithm     = "aws:kms"
+    id     = "expire-old-logs"
+    status = "Enabled"
+
+    expiration {
+      days = 90
     }
   }
 }
 
-# Tabla DynamoDB para bloqueo de estado
-resource "aws_dynamodb_table" "terraform_locks" {
-  name         = "${var.project_name}-terraform-locks"
-  billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "LockID"
+resource "aws_cloudwatch_log_group" "application_logs" {
+  name              = "/aws/${var.environment}/pagos/application"
+  retention_in_days = 90
+  kms_key_id        = aws_kms_key.application.arn
 
-  attribute {
-    name = "LockID"
-    type = "S"
-  }
-
-  tags = {
-    Name        = "${var.project_name}-terraform-locks"
-    Description = "Tabla para bloqueo de estado de Terraform"
-    Environment = var.environment
-    Project     = var.project_name
-  }
-}
-
-# Política de acceso a la tabla de bloqueo
-resource "aws_dynamodb_table_policy" "terraform_locks_policy" {
-  name = "${var.project_name}-terraform-locks-policy"
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Sid    = "AllowTerraformLocking"
-        Effect = "Allow"
-        Principal = {
-          AWS = "*"
-        }
-        Action = [
-          "dynamodb:GetItem",
-          "dynamodb:PutItem",
-          "dynamodb:DeleteItem"
-        ]
-        Resource = aws_dynamodb_table.terraform_locks.arn
-        Condition = {
-          Bool = {
-            "aws:SecureTransport" = "true"
-          }
-        }
-      }
-    ]
+  tags = merge(local.common_tags, {
+    Name        = "application-log-group"
+    Sensitive   = "false"
   })
 }
 
-# =============================================================================
-# LLAVE KMS PARA CIFRADO DEL ESTADO
-# Cifrado en reposo para el bucket S3 y tabla DynamoDB
-# =============================================================================
-resource "aws_kms_key" "terraform_state" {
-  description             = "Llave KMS para cifrado del estado de Terraform"
-  deletion_window_in_days = 10
-  enable_key_rotation     = true
+resource "aws_cloudwatch_log_stream" "application_access" {
+  name           = "access-logs"
+  log_group_name = aws_cloudwatch_log_group.application_logs.name
+}
 
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Id      = "terraform-state-key-policy"
-    Statement = [
-      {
-        Sid    = "Enable IAM User Permissions"
-        Effect = "Allow"
-        Principal = {
-          AWS = "arn:aws:iam::${var.account_id}:root"
-        }
-        Action = "kms:*"
-        Resource = "*"
-      },
-      {
-        Sid    = "Allow S3 to use this key"
-        Effect = "Allow"
-        Principal = {
-          Service = "s3.amazonaws.com"
-        }
-        Action = [
-          "kms:Encrypt",
-          "kms:Decrypt",
-          "kms:ReEncrypt*",
-          "kms:GenerateDataKey*",
-          "kms:DescribeKey",
-          "kms:CreateGrant"
-        ]
-        Resource = "*"
-        Condition = {
-          StringEquals = {
-            "aws:SourceAccount" = var.account_id
-          }
-        }
-      },
-      {
-        Sid    = "Allow DynamoDB to use this key"
-        Effect = "Allow"
-        Principal = {
-          Service = "dynamodb.amazonaws.com"
-        }
-        Action = [
-          "kms:Encrypt",
-          "kms:Decrypt",
-          "kms:ReEncrypt*",
-          "kms:GenerateDataKey*",
-          "kms:DescribeKey",
-          "kms:CreateGrant"
-        ]
-        Resource = "*"
-        Condition = {
-          StringEquals = {
-            "aws:SourceAccount" = var.account_id
-          }
-        }
-      }
-    ]
+resource "aws_cloudwatch_log_stream" "application_error" {
+  name           = "error-logs"
+  log_group_name = aws_cloudwatch_log_group.application_logs.name
+}
+
+resource "aws_cloudwatch_log_stream" "application_audit" {
+  name           = "audit-logs"
+  log_group_name = aws_cloudwatch_log_group.application_logs.name
+}
+
+resource "aws_cloudwatch_metric_alarm" "high_cpu_utilization" {
+  alarm_name          = "${var.environment}-high-cpu-utilization"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/EC2"
+  period              = 60
+  statistic           = "Average"
+  threshold           = 80
+  alarm_description   = "This metric monitors EC2 CPU utilization"
+  alarm_actions       = [module.compute.scale_out_alarm_arn]
+
+  dimensions = {
+    AutoScalingGroupName = module.compute.asg_name
+  }
+
+  tags = merge(local.common_tags, {
+    Name        = "high-cpu-alarm"
+    Severity    = "warning"
   })
+}
 
-  tags = {
-    Name        = "${var.project_name}-kms-terraform-state"
-    Description = "Llave KMS para cifrado del estado de Terraform"
-    Environment = var.environment
-    Project     = var.project_name
+resource "aws_cloudwatch_metric_alarm" "high_memory_utilization" {
+  alarm_name          = "${var.environment}-high-memory-utilization"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "MemoryUtilization"
+  namespace           = "System/Linux"
+  period              = 60
+  statistic           = "Average"
+  threshold           = 85
+  alarm_description   = "This metric monitors memory utilization"
+
+  dimensions = {
+    AutoScalingGroupName = module.compute.asg_name
+  }
+
+  tags = merge(local.common_tags, {
+    Name        = "high-memory-alarm"
+    Severity    = "warning"
+  })
+}
+
+resource "aws_cloudwatch_metric_alarm" "target_response_time" {
+  alarm_name          = "${var.environment}-target-response-time"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 3
+  metric_name         = "TargetResponseTime"
+  namespace           = "AWS/ApplicationELB"
+  period              = 60
+  statistic           = "p95"
+  threshold           = 1
+  alarm_description   = "ALB target response time exceeds threshold"
+  alarm_actions       = [module.compute.scale_out_alarm_arn]
+
+  dimensions = {
+    LoadBalancer = module.compute.elb_arn
+  }
+
+  tags = merge(local.common_tags, {
+    Name        = "target-response-time-alarm"
+    Severity    = "warning"
+    SLI         = "latency"
+  })
+}
+
+resource "aws_cloudwatch_metric_alarm" "target_5xx_errors" {
+  alarm_name          = "${var.environment}-target-5xx-errors"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "TargetConnectionErrorCount"
+  namespace           = "AWS/ApplicationELB"
+  period              = 60
+  statistic           = "Sum"
+  threshold           = 10
+  alarm_description   = "ALB target returns 5xx errors"
+
+  dimensions = {
+    LoadBalancer = module.compute.elb_arn
+  }
+
+  tags = merge(local.common_tags, {
+    Name        = "target-5xx-errors-alarm"
+    Severity    = "critical"
+    SLI         = "availability"
+  })
+}
+
+resource "aws_vpc_endpoint" "s3" {
+  vpc_id       = module.network.vpc_id
+  service_name = "com.amazonaws.${var.aws_region}.s3"
+
+  tags = merge(local.common_tags, {
+    Name = "vpc-endpoint-s3"
+  })
+}
+
+resource "aws_vpc_endpoint" "dynamodb" {
+  vpc_id       = module.network.vpc_id
+  service_name = "com.amazonaws.${var.aws_region}.dynamodb"
+
+  tags = merge(local.common_tags, {
+    Name = "vpc-endpoint-dynamodb"
+  })
+}
+
+resource "aws_vpc_endpoint" "secrets_manager" {
+  vpc_id       = module.network.vpc_id
+  service_name = "com.amazonaws.${var.aws_region}.secretsmanager"
+
+  tags = merge(local.common_tags, {
+    Name = "vpc-endpoint-secrets-manager"
+  })
+}
+
+resource "aws_vpc_endpoint" "ssm" {
+  vpc_id       = module.network.vpc_id
+  service_name = "com.amazonaws.${var.aws_region}.ssm"
+
+  tags = merge(local.common_tags, {
+    Name = "vpc-endpoint-ssm"
+  })
+}
+
+resource "aws_vpc_endpoint" "cloudwatch_logs" {
+  vpc_id       = module.network.vpc_id
+  service_name = "com.amazonaws.${var.aws_region}.logs"
+
+  tags = merge(local.common_tags, {
+    Name = "vpc-endpoint-logs"
+  })
+}
+
+resource "aws_vpc_endpoint" "sqs" {
+  vpc_id       = module.network.vpc_id
+  service_name = "com.amazonaws.${var.aws_region}.sqs"
+
+  tags = merge(local.common_tags, {
+    Name = "vpc-endpoint-sqs"
+  })
+}
+
+resource "aws_vpc_endpoint" "sns" {
+  vpc_id       = module.network.vpc_id
+  service_name = "com.amazonaws.${var.aws_region}.sns"
+
+  tags = merge(local.common_tags, {
+    Name = "vpc-endpoint-sns"
+  })
+}
+
+// === ARCHIVO: outputs.tf ===
+output "environment" {
+  description = "Environment name"
+  value       = var.environment
+}
+
+output "aws_region" {
+  description = "AWS region where resources are deployed"
+  value       = var.aws_region
+}
+
+output "vpc_id" {
+  description = "ID of the VPC"
+  value       = module.network.vpc_id
+}
+
+output "vpc_cidr" {
+  description = "CIDR block of the VPC"
+  value       = module.network.vpc_cidr
+}
+
+output "vpc_arn" {
+  description = "ARN of the VPC"
+  value       = module.network.vpc_arn
+}
+
+output "public_subnet_ids" {
+  description = "IDs of the public subnets"
+  value       = module.network.public_subnet_ids
+}
+
+output "private_subnet_app_ids" {
+  description = "IDs of the private subnets for application layer"
+  value       = module.network.private_subnet_app_ids
+}
+
+output "private_subnet_data_ids" {
+  description = "IDs of the private subnets for data layer"
+  value       = module.network.private_subnet_data_ids
+}
+
+output "private_subnet_mgmt_ids" {
+  description = "IDs of the private subnets for management layer"
+  value       = module.network.private_subnet_mgmt_ids
+}
+
+output "nat_gateway_ids" {
+  description = "IDs of the NAT Gateways"
+  value       = module.network.nat_gateway_ids
+}
+
+output "nat_gateway_elastic_ips" {
+  description = "Elastic IPs assigned to NAT Gateways"
+  value       = module.network.nat_gateway_elastic_ips
+}
+
+output "internet_gateway_id" {
+  description = "ID of the Internet Gateway"
+  value       = module.network.igw_id
+}
+
+output "public_route_table_id" {
+  description = "ID of the public route table"
+  value       = module.network.public_route_table_id
+}
+
+output "private_route_table_ids" {
+  description = "IDs of the private route tables"
+  value       = module.network.private_route_table_ids
+}
+
+output "security_group_ids" {
+  description = "Map of security group IDs"
+  value = {
+    elb_security_group_id      = module.security.elb_security_group_id
+    instance_security_group_id = module.security.instance_security_group_id
+    rds_security_group_id      = module.security.rds_security_group_id
+    internal_security_group_id = module.security.internal_security_group_id
   }
 }
 
-# Alias de la llave KMS
-resource "aws_kms_alias" "terraform_state" {
-  name          = "alias/${var.project_name}-terraform-state"
-  target_key_id = aws_kms_key.terraform_state.key_id
+output "iam_role_arns" {
+  description = "Map of IAM role ARNs"
+  value = {
+    ec2_instance_role_arn = module.security.ec2_instance_role_arn
+    asg_service_role_arn  = module.security.asg_service_role_arn
+  }
 }
 
+output "kms_key_arns" {
+  description = "Map of KMS key ARNs"
+  value = {
+    security_kms_key_arn = module.security.security_kms_key_arn
+    ebs_kms_key_arn      = module.security.ebs_kms_key_arn
+    application_kms_key_arn = aws_kms_key.application.arn
+  }
+}
+
+output "application_log_group_name" {
+  description = "CloudWatch log group name for application logs"
+  value       = aws_cloudwatch_log_group.application_logs.name
+}
+
+output "application_logs_bucket_name" {
+  description = "S3 bucket name for application logs"
+  value       = aws_s3_bucket.application_logs.id
+}
+
+output "elb_dns_name" {
+  description = "DNS name of the Application Load Balancer"
+  value       = module.compute.elb_dns_name
+}
+
+output "elb_arn" {
+  description = "ARN of the Application Load Balancer"
+  value       = module.compute.elb_arn
+}
+
+output "elb_zone_id" {
+  description = "Zone ID of the ALB for Route 53 alias"
+  value       = module.compute.elb_zone_id
+}
+
+output "asg_name" {
+  description = "Name of the Auto Scaling Group"
+  value       = module.compute.asg_name
+}
+
+output "asg_arn" {
+  description = "ARN of the Auto Scaling Group"
+  value       = module.compute.asg_arn
+}
+
+output "instance_ids" {
+  description = "IDs of EC2 instances in the ASG"
+  value       = module.compute.instance_ids
+}
+
+output "launch_template_id" {
+  description = "ID of the Launch Template"
+  value       = module.compute.launch_template_id
+}
+
+output "target_group_arn" {
+  description = "ARN of the ALB target group"
+  value       = module.compute.target_group_arn
+}
+
+output "vpc_endpoints" {
+  description = "Map of VPC endpoint IDs"
+  value = {
+    s3            = aws_vpc_endpoint.s3.id
+    dynamodb      = aws_vpc_endpoint.dynamodb.id
+    secrets_manager = aws_vpc_endpoint.secrets_manager.id
+    ssm           = aws_vpc_endpoint.ssm.id
+    cloudwatch_logs = aws_vpc_endpoint.cloudwatch_logs.id
+    sqs           = aws_vpc_endpoint.sqs.id
+    sns           = aws_vpc_endpoint.sns.id
+  }
+}
+
+output "cloudwatch_alarm_arns" {
+  description = "Map of CloudWatch alarm ARNs"
+  value = {
+    high_cpu_alarm       = aws_cloudwatch_metric_alarm.high_cpu_utilization.arn
+    high_memory_alarm    = aws_cloudwatch_metric_alarm.high_memory_utilization.arn
+    target_response_time = aws_cloudwatch_metric_alarm.target_response_time.arn
+    target_5xx_errors    = aws_cloudwatch_metric_alarm.target_5xx_errors.arn
+  }
+}
+
+output "account_id" {
+  description = "AWS account ID"
+  value       = data.aws_caller_identity.current.account_id
+}
+
+output "all_public_subnet_cidrs" {
+  description = "CIDR blocks of all public subnets"
+  value       = local.public_subnet_cidrs
+}
+
+output "all_private_subnet_app_cidrs" {
+  description = "CIDR blocks of all private application subnets"
+  value       = local.private_subnet_app_cidrs
+}
+
+output "all_private_subnet_data_cidrs" {
+  description = "CIDR blocks of all private data subnets"
+  value       = local.private_subnet_data_cidrs
+}
+
+output "all_private_subnet_mgmt_cidrs" {
+  description = "CIDR blocks of all private management subnets"
+  value       = local.private_subnet_mgmt_cidrs
+}
 
 // === ARCHIVO: README.md ===
-# Infraestructura de Red Segura para Entorno de Pagos
+# Diseño de Red Segura para Entorno de Pagos
 
 ## Descripción del Proyecto
 
-Este proyecto implementa una topología de red segura en AWS diseñada específicamente para un entorno de procesamiento de pagos que debe manejar 10,000 transacciones por segundo con un SLA de 99.9%. La arquitectura sigue el patrón de arquitectura de red de tres capas con segmentación estricta entre servicios de pago, monitoreo y auditoría.
+Este proyecto implementa una topología de red segura y segmentada en AWS para un entorno de pagos de una institución financiera. La arquitectura cumple con los requisitos de alta disponibilidad, throughput de 10.000 transacciones por segundo y SLA del 99.99%.
 
-La infraestructura se construye utilizando Terraform en su versión 1.7.5 con el provider AWS 5.0, siguiendo principios de infraestructura como código reproducible, versionable y auditables. El diseño cumple con los requisitos de confidencialidad, integridad y disponibilidad establecidos para sistemas de pago PCI-DSS compatibles.
+## Componentes del Sistema
 
-## Arquitectura de la Solución
+El entorno de pagos está compuesto por tres sistemas principales que requieren segmentación de red:
 
-### Topología de Red
+- **Gateway de Pagos**: Punto de entrada para todas las transacciones de pago. Expone APIs REST para procesamiento de pagos con TLSmutuo.
+- **Sistema de Liquidación**: Procesa y concilia las transacciones autorizadas. Requiere acceso a bases de datos sensibles y comunicación cifrada.
+- **Motor Antifraude**: Analiza transacciones en tiempo real utilizando modelos de ML. Necesita conectividad con servicios de terceros y almacenamiento de patrones.
+
+## Topología de Red
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                              VPC Principal (10.0.0.0/16)                        │
-│                                                                                  │
-│  ┌──────────────────────────────────────────────────────────────────────────┐  │
-│  │                        Zona de Disponibilidad A                         │  │
-│  │                                                                           │  │
-│  │  ┌─────────────────────┐    ┌─────────────────────┐                     │  │
-│  │  │  Subred Pública     │    │  Subred Privada     │                     │  │
-│  │  │  (App Tier)         │    │  (Datos Pagos)      │                     │  │
-│  │  │  10.0.1.0/24        │    │  10.0.11.0/24       │                     │  │
-│  │  │                     │    │                     │                     │  │
-│  │  │  • ALB              │    │  • RDS Pagos        │                     │  │
-│  │  │  • NAT Gateway      │    │  • Lambda Pagos     │                     │  │
-│  │  │  • Bastion Host     │    │  • DynamoDB         │                     │  │
-│  │  └─────────────────────┘    └─────────────────────┘                     │  │
-│  │                                                                           │  │
-│  │  ┌─────────────────────┐    ┌─────────────────────┐                     │  │
-│  │  │  Subred Pública     │    │  Subred Privada     │                     │  │
-│  │  │  (Monitoreo)        │    │  (Auditoría)        │                     │  │
-│  │  │  10.0.2.0/24        │    │  10.0.12.0/24       │                     │  │
-│  │  │                     │    │                     │                     │  │
-│  │  │  • CloudWatch       │    │  • Logs Auditoría   │                     │  │
-│  │  │  • Prometheus       │    │  • S3 Auditoría     │                     │  │
-│  │  │  • Grafana          │    │  • KMS Keys         │                     │  │
-│  │  └─────────────────────┘    └─────────────────────┘                     │  │
-│  └──────────────────────────────────────────────────────────────────────────┘  │
-│                                                                                  │
-│  ┌──────────────────────────────────────────────────────────────────────────┐  │
-│  │                        Zona de Disponibilidad B                         │  │
-│  │                                                                           │  │
-│  │  ┌─────────────────────┐    ┌─────────────────────┐                     │  │
-│  │  │  Subred Pública     │    │  Subred Privada     │                     │  │
-│  │  │  (App Tier)         │    │  (Datos Pagos)      │                     │  │
-│  │  │  10.0.101.0/24      │    │  10.0.111.0/24      │                     │  │
-│  │  │                     │    │                     │                     │  │
-│  │  │  • ALB (secundario) │    │  • RDS Replica      │                     │  │
-│  │  │  • NAT Gateway      │    │  • Lambda Pagos     │                     │  │
-│  │  └─────────────────────┘    └─────────────────────┘                     │  │
-│  │                                                                           │  │
-│  │  ┌─────────────────────┐    ┌─────────────────────┐                     │  │
-│  │  │  Subred Pública     │    │  Subred Privada     │                     │  │
-│  │  │  (Monitoreo)        │    │  (Auditoría)        │                     │  │
-│  │  │  10.0.102.0/24      │    │  10.0.112.0/24      │                     │  │
-│  │  │                     │    │                     │                     │  │
-│  │  │  • Monitoring Agent │    │  • Logs Replica     │                     │  │
-│  │  │  • Backup Storage   │    │  • Glacier Vault    │                     │  │
-│  │  └─────────────────────┘    └─────────────────────┘                     │  │
-│  └──────────────────────────────────────────────────────────────────────────┘  │
-│                                                                                  │
-│  ┌──────────────────────────────────────────────────────────────────────────┐  │
-│  │                        Internet Gateway                                  │  │
-│  │                        igw-xxxxxxxx                                      │  │
-│  └──────────────────────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              VPC PRINCIPAL (10.0.0.0/16)                    │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                         ZONA DE DISPONIBILIDAD A                    │   │
+│  │  ┌─────────────────┐    ┌─────────────────┐    ┌────────────────┐  │   │
+│  │  │  Subred Pública │    │ Subred Privada  │    │ Subred Privada │  │   │
+│  │  │   (App Tier)    │    │  (Data Tier)    │    │ (Security Tier)│  │   │
+│  │  │  10.0.1.0/24    │    │  10.0.2.0/24    │    │  10.0.3.0/24   │  │   │
+│  │  │                  │    │                  │    │                │  │   │
+│  │  │  ┌────────────┐  │    │  ┌────────────┐  │    │  ┌──────────┐  │  │   │
+│  │  │  │   ALB/NLB │  │    │  │   RDS/Aurora│ │    │  │  EC2     │  │  │   │
+│  │  │  │  (Pagos)  │  │    │  │ (Liquidac.) │ │    │  │(Antifraude)│ │  │   │
+│  │  │  └────────────┘  │    │  └────────────┘  │    │  └──────────┘  │  │   │
+│  │  └─────────────────┘    └─────────────────┘    └────────────────┘  │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                         ZONA DE DISPONIBILIDAD B                    │   │
+│  │  ┌─────────────────┐    ┌─────────────────┐    ┌────────────────┐  │   │
+│  │  │  Subred Pública │    │ Subred Privada  │    │ Subred Privada │  │   │
+│  │  │   (App Tier)    │    │  (Data Tier)    │    │ (Security Tier)│  │   │
+│  │  │  10.0.11.0/24   │    │  10.0.12.0/24   │    │  10.0.13.0/24  │  │   │
+│  │  │                  │    │                  │    │                │  │   │
+│  │  │  ┌────────────┐  │    │  ┌────────────┐  │    │  ┌──────────┐  │  │   │
+│  │  │  │   ALB/NLB │  │    │  │   RDS/Aurora│ │    │  │  EC2     │  │  │   │
+│  │  │  │  (Pagos)  │  │    │  │ (Liquidac.) │ │    │  │(Antifraude)│ │  │   │
+│  │  │  └────────────┘  │    │  └────────────┘  │    │  └──────────┘  │  │   │
+│  │  └─────────────────┘    └─────────────────┘    └────────────────┘  │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                        GATEWAY DE INTERNET                          │   │
+│  │  ┌──────────────────────────────────────────────────────────────┐  │   │
+│  │  │                    Internet Gateway                          │  │   │
+│  │  │               + NAT Gateways (HA)                            │  │   │
+│  │  └──────────────────────────────────────────────────────────────┘  │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+Segmentación de Tráfico:
+- Subredes Públicas: ALB/NLB expuestos a Internet con WAF
+- Subredes Privadas App: EC2 con aplicaciones de procesamiento
+- Subredes Privadas Data: RDS PostgreSQL/Aurora con cifrado
+- Subredes Privadas Security: Motor antifraude con acceso controlado
 ```
-
-### Segmentación de Red por Propósito
-
-La arquitectura define cuatro segmentos de red claramente diferenciados que garantizan el aislamiento lógico requerido para un entorno de pagos. Cada segmento tiene un propósito específico y políticas de seguridad adaptadas a su función dentro del ecosistema de procesamiento de transacciones.
-
-El primer segmento corresponde a las subredes públicas de aplicación, identificadas con el rango CIDR 10.0.1.0/24 y 10.0.101.0/24 en las zonas de disponibilidad A y B respectivamente. Estas subredes albergan los componentes que requieren exposición a internet, específicamente el Application Load Balancer que recibe las transacciones entrantes y los NAT Gateways que permiten a los servicios en subredes privadas establecer conexiones salientes hacia internet para actualizaciones y comunicaciones con APIs externas. La regla de seguridad aplicada permite tráfico entrante solo hacia el ALB en el puerto 443, y tráfico saliente hacia internet únicamente a través de los NAT Gateway con filtering de destinos permitidos.
-
-El segundo segmento comprende las subredes privadas de procesamiento de pagos, con rangos 10.0.11.0/24 y 10.0.111.0/24. Aquí se ejecutan los componentes críticos del motor de pagos incluyendo la base de datos RDS PostgreSQL con cifrado KMS, las funciones Lambda que procesan la lógica de negocio deloriginador de pagos y el motor antifraude, y las tablas de DynamoDB para el almacenamiento de estados de transacción. Esta es la zona más restrictiva: no tiene acceso directo a internet y todas las comunicaciones hacia ella deben pasar por el ALB o mediante AWS PrivateLink desde servicios autorizados.
-
-El tercer segmento corresponde a las subredes de monitoreo público con CIDR 10.0.2.0/24 y 10.0.102.0/24. En estas subredes se despliegan las herramientas de observabilidad como CloudWatch Agents, Prometheus para recolección de métricas y Grafana para visualización. La exposición pública permite que los equipos de operaciones accedan a los dashboards de monitoreo sin necesidad de conectividad VPN a la VPC, aunque autenticación robusta mediante IAM y OAuth está enforced.
-
-El cuarto segmento es el de auditoría privada con rangos 10.0.12.0/24 y 10.0.112.0/24. Aquí se almacenan los logs de auditoría en S3 con versioning habilitado, los AWS KMS keys para gestión de claves de cifrado, y los buckets de Glacier para retención a largo plazo de registros de auditoría. El acceso es estrictamente controlado mediante políticas IAM específicas y todo acceso queda registrado en CloudTrail.
 
 ## Estructura de Módulos
 
-### Módulo de Red (modules/network)
+### Módulo Network
 
-El módulo de red constituye la base de toda la infraestructura y se compone de cinco recursos fundamentales que crean la topología de conectividad de la VPC.
+El módulo de red gestiona toda la infraestructura de conectividad:
 
-El archivo vpc.tf define la Virtual Private Cloud con el bloque CIDR 10.0.0.0/16 que proporciona espacio suficiente para los cuatro segmentos de red más capacidad de crecimiento futuro. La VPC se configura con DNS hosting y DNS support habilitados, junto con las opciones de enableNetworkAddressUsageMetrics para optimización de costos. El recurso incluye tags obligatorios que permiten identificar el entorno, el costo y el propósito de cada recurso.
+- **VPC Principal**: CIDR 10.0.0.0/16 con soporte para múltiples AZs
+- **Subredes Públicas**: 10.0.1.0/24 y 10.0.11.0/24 para componentes expuestos
+- **Subredes Privadas App**: 10.0.2.0/24 y 10.0.12.0/24 para aplicaciones
+- **Subredes Privadas Data**: 10.0.3.0/24 y 10.0.13.0/24 para bases de datos
+- **Internet Gateway**: Conexión bidireccional con Internet
+- **NAT Gateways**: Alta disponibilidad en cada AZ para salida de tráfico
+- **Tablas de Rutas**: Segmentación específica por tipo de subred
+- **Network ACLs**: Reglas stateless para control de tráfico entre subredes
 
-El archivo subnets.tf crea las ocho subredes necesarias distribuidas en dos zonas de disponibilidad para garantizar la alta disponibilidad requerida del 99.9%. Cada par de subredes (pública, privada de pagos, pública de monitoreo, privada de auditoría) se crea en cada zona con sus correspondientes tags de identificación de propósito y zona. Las subredes privadas se configuran con el atributo map_public_ip_on_launch en false para garantizar que los recursos que se desplieguen en ellas no tengan direcciones IP públicas.
+### Módulo Security
 
-El archivo internet_gateway.tf establece el punto de conexión entre la VPC e internet. El Internet Gateway se adjunta a la VPC y permite el tráfico bidireccional entre las subredes públicas e internet. Se configura con las tags estándar de identificación del entorno.
+El módulo de seguridad implementa el principio de menor privilegio:
 
-El archivo nat_gateway.tf despliega un NAT Gateway en cada zona de disponibilidad para proporcionar conectividad saliente a internet a los recursos en subredes privadas. Cada NAT Gateway se despliega en una subred pública específica y se asocia a una Elastic IP. La arquitectura con NAT Gateways distribuidos garantiza que si una zona de disponibilidad falla, las instancias en la otra zona mantengan conectividad a internet.
+- **IAM Roles**: Roles específicos por servicio con políticas inline
+- **Security Groups**: Grupos de seguridad por componente con reglas mínimas
+- **KMS Keys**: Claves de cifrado para datos en reposo
+- **CloudWatch Logs**: Retención configurable de logs de auditoría
+- **IAM Policies**: Políticas documentadas con permisos explícitos
 
-El archivo route_tables.tf define las tablas de rutas que controlan el flujo de tráfico dentro de la VPC. La tabla de rutas pública tiene una ruta default hacia el Internet Gateway, mientras que cada tabla de rutas privada tiene una ruta default hacia el NAT Gateway de su zona de disponibilidad correspondiente. Esta distribución de rutas por zona optimiza la latencia y garantiza la alta disponibilidad.
+### Módulo Compute
 
-### Módulo de Seguridad (modules/security)
+El módulo de compute gestiona los recursos de procesamiento:
 
-El módulo de seguridad implementa las capas de protección requeridas para un entorno de pagos, aplicando el principio de menor privilegio en cada componente.
+- **ALB/NLB**: Balanceadores de carga con terminate TLS y health checks
+- **EC2 Instances**: Instancias auto-escalables para aplicaciones
+- **Auto Scaling Groups**: Configuración de escalamiento basado en métricas
+- **Target Groups**: Grupos de destino con health checks configurables
 
-El archivo security_groups.tf define los grupos de seguridad que controlan el tráfico a nivel de instancia y aplicación. Se crean grupos específicos para el ALB que permite tráfico HTTPS entrante desde cualquier origen y tráfico hacia las subredes privadas de aplicación. El grupo de seguridad de RDS permite conexiones desde el grupo de seguridad de la capa de aplicación únicamente en el puerto 5432. El grupo de seguridad de Lambda permite tráfico entrante desde el ALB y desde otras Lambdas del entorno de pagos. Los grupos de seguridad de monitoreo permiten tráfico entrante desde las redes de operaciones y desde las subredes de procesamiento de pagos.
+## Uso del Proyecto
 
-El archivo iam.tf contiene las políticas IAM que definen los permisos mínimos necesarios para cada componente del sistema. La política del rol de Lambda de pagos incluye permisos específicos para acceder a DynamoDB, KMS para cifrado, y S3 para logs, sin permisos generales que excedan lo necesario. El rol de ejecución de Lambda tiene la política AmazonLambdaVPCAccessExecutionRole adjunta para permitir la escritura en CloudWatch Logs. Las políticas de acceso a datos siguen el principio de menor privilegio: solo permiten las operaciones específicas sobre los recursos específicos requeridos por cada componente.
+### Requisitos Previos
 
-El archivo kms.tf gestiona las claves de KMS para el cifrado en reposo de todos los recursos sensibles. Se crea una clave maestra por entorno con políticas que restringen el uso a roles IAM específicos del entorno. Las claves de cifrado de RDS utilizan esta clave maestra para el cifrado de la base de datos. Las claves de S3 utilizan la misma estrategia para los buckets de logs y auditoría. La política de claves incluye rotación automática anual y restricciones geográficas para el uso de las claves.
+- Terraform >= 1.5 instalado
+- AWS CLI configurado con credenciales apropiadas
+- Acceso a cuenta de AWS con permisos para crear recursos
 
-### Módulo de Servicios (modules/services)
-
-El módulo de servicios despliega los componentes de aplicación que operan sobre la infraestructura de red y seguridad.
-
-El archivo rds.tf configura la base de datos PostgreSQL del sistema de pagos. La instancia se despliega en múltiples zonas de disponibilidad con una réplica de lectura en la segunda zona. El almacenamiento utiliza IOPS provisionadas para soportar el throughput de 10,000 transacciones por segundo. El cifrado en reposo está habilitado utilizando la clave KMS del entorno. Los parámetros de base de datos se configuran para PCI-DSS compliance incluyendo logging de todas las consultas y conexiones.
-
-El archivo lambda.tf define las funciones Lambda que ejecutan la lógica de procesamiento de pagos. Se configuran dos funciones: una para el procesamiento principal de transacciones y otra para el motor antifraude. Ambas funciones se despliegan en las subredes privadas de pagos con acceso a la base de datos y a los servicios de KMS. La configuración incluye reserved concurrency para garantizar capacidad y dead letter queues para manejo de fallos.
-
-El archivo alb.tf crea el Application Load Balancer que recibe el tráfico de pagos en las subredes públicas. El ALB está configurado con HTTPS obligatorio utilizando certificados ACM. Se configuran health checks hacia las funciones Lambda y target groups con el tipo lambda. El ALB implementa protección mediante AWS WAF reglas específicas para mitigar ataques comunes a aplicaciones web.
-
-## Configuración por Ambiente
-
-La infraestructura soporta tres ambientes diferenciados que permiten el ciclo de desarrollo, pruebas y producción con aislamiento adecuado.
-
-### Desarrollo (environments/dev)
-
-El ambiente de desarrollo utiliza recursos de menor tamaño para optimización de costos mientras mantiene la misma topología de red. La base de datos RDS utiliza una instancia db.t3.medium con almacenamiento de 100 GB. Las funciones Lambda tienen un límite de concurrency de 10. El backend de Terraform utiliza el bucket de estados de desarrollo con versioning habilitado. Las variables específicas del ambiente se encuentran en environments/dev/terraform.tfvars.
-
-### Calidad (environments/qa)
-
-El ambiente de QA replica la configuración de producción en términos de arquitectura pero con recursos dimensionados para cargas de prueba. La base de datos utiliza instancias db.r5.large para manejar las pruebas de carga de hasta 10,000 TPS. El ambiente tiene acceso a los mismos servicios de monitoreo que producción pero con retención de logs reducida. La configuración se encuentra en environments/qa/terraform.tfvars.
-
-### Producción (environments/prod)
-
-El ambiente de producción implementa la configuración completa con todos los componentes de alta disponibilidad. La base de datos utiliza instancias db.r5.xlarge en configuración Multi-AZ con lectura replicada. Las funciones Lambda tienen concurrency reservada de 100 para garantizar capacidad bajo carga pico. El entorno incluye todas las integraciones de auditoría y monitoreo. La configuración se encuentra en environments/prod/terraform.tfvars.
-
-## Comandos de Despliegue
-
-El despliegue de la infraestructura sigue un proceso secuencial que garantiza la consistencia del estado de Terraform y la trazabilidad de los cambios realizados en cada ambiente.
-
-### Inicialización del Entorno
-
-El primer paso consiste en inicializar Terraform con el backend configurado para almacenar el estado en S3 con bloqueo mediante DynamoDB. Este comando descarga los providers necesarios y configura el backend remoto.
+### Inicialización
 
 ```bash
-cd environments/{dev|qa|prod}
-terraform init -backend-config=backend.hcl
-```
+# Inicializar Terraform sin backend para validación
+terraform init -backend=false
 
-### Validación de la Configuración
-
-Antes de planificar o aplicar cambios, es fundamental validar que la configuración de Terraform no contiene errores de sintaxis o referencias inválidas. El comando validate verifica la consistencia de los archivos de configuración.
-
-```bash
+# Validar la configuración
 terraform validate
+
+# Verificar formato de archivos
+terraform fmt -check
+
+# Planificar cambios para un ambiente específico
+cd environments/dev
+terraform plan
 ```
 
-### Verificación de Formato
+### Ambientes Disponibles
 
-El comando fmt verifica que los archivos de configuración siguen el formato estándar de Terraform. Se recomienda ejecutar este comando antes de cada commit para mantener la consistencia del código.
+El proyecto soporta tres ambientes con configuración específica:
+
+- **dev**: Configuración de desarrollo con recursos de menor tamaño
+- **qa**: Configuración de pruebas con recursos equivalentes a producción
+- **prod**: Configuración de producción con alta disponibilidad completa
+
+### Despliegue por Ambiente
 
 ```bash
-terraform fmt -check -recursive
+# Desarrollo
+cd environments/dev
+terraform init -backend-config=../backend.tf
+terraform plan -var-file=terraform.tfvars
+terraform apply -var-file=terraform.tfvars
+
+# Producción
+cd environments/prod
+terraform init -backend-config=../backend.tf
+terraform plan -var-file=terraform.tfvars
+terraform apply -var-file=terraform.tfvars
 ```
 
-### Planificación de Cambios
+## Consideraciones de Seguridad
 
-El comando plan genera un plan de ejecución que muestra los recursos que se crearán, modificarán o destruirán. Este paso es obligatorio antes de aplicar cambios en cualquier ambiente y debe ser revisado por un aprobador.
+### Cifrado
 
-```bash
-terraform plan -var-file=terraform.tfvars -out=tfplan
-```
+- Datos en reposo: Cifrado con AWS KMS en todas las opciones de almacenamiento
+- Datos en tránsito: TLS 1.2 mínimo para todas las comunicaciones
+- Secrets: Almacenamiento en AWS Secrets Manager con rotación automática
 
-### Aplicación de Cambios
+### Segmentación de Red
 
-El comando apply despliega los recursos definidos en el plan. En entornos de producción se recomienda revisar el plan generado antes de confirmar la aplicación.
+- Las subredes públicas solo contienen ALB/NLB con reglas de entrada limitadas
+- Las subredes privadas no tienen rutas directas a Internet
+- El tráfico entre subredes está controlado por NACLs y Security Groups
+- El tráfico east-west está restringido entre segmentos de confianza
 
-```bash
-terraform apply tfplan
-```
+### Identidades y Accesos
 
-### Destrucción de Recursos
+- Cada servicio tiene un rol IAM específico con permisos mínimos necesarios
+- No se utilizan credenciales hardcodeadas ni ARNs estáticos
+- MFA requerido para operaciones sensibles
+- CloudTrail registra todas las operaciones con retención de 90 días
 
-Para eliminar todos los recursos creados por Terraform se utiliza el comando destroy. Este comando debe ejecutarse con extrema precaución en entornos de producción.
+## Monitoreo y Observabilidad
 
-```bash
-terraform destroy -var-file=terraform.tfvars
-```
+### Métricas de Red
 
-## Diagrama de Flujo de Transacciones
+- Latencia entre AZs: Objetivo < 1ms
+- Throughput: Capacidad para 10.000 TPS
+- Disponibilidad: SLA 99.99% (máximo 52 minutos de downtime anual)
 
-El siguiente diagrama ilustra el flujo de una transacción de pago a través de la infraestructura de red segura:
+### Alarmas Configuradas
 
-```
-┌──────────────┐     HTTPS      ┌──────────────┐
-│  Cliente     │───────────────>│     ALB      │
-│  Pagos       │   (443/tls)    │  (WAF + DDoS)│
-└──────────────┘                └──────┬───────┘
-                                        │
-                                        │ HTTP
-                                        ▼
-                               ┌────────────────┐
-                               │   Lambda       │
-                               │  Procesador    │
-                               │   Pagos        │
-                               └───────┬────────┘
-                                       │
-                    ┌──────────────────┼──────────────────┐
-                    │                  │                  │
-                    ▼                  ▼                  ▼
-           ┌──────────────┐   ┌──────────────┐   ┌──────────────┐
-           │     RDS      │   │  DynamoDB    │   │    Lambda    │
-           │  PostgreSQL  │   │  Transacciones│   │  Anti-Fraude │
-           │ (Cifrado)    │   │ (Cifrado)    │   │              │
-           └──────────────┘   └──────────────┘   └──────────────┘
-                    │                  │                  │
-                    └──────────────────┼──────────────────┘
-                                       │
-                                       ▼
-                               ┌────────────────┐
-                               │      S3        │
-                               │   Auditoría    │
-                               │  (Logs + KMS)  │
-                               └────────────────┘
-```
+- CPU Utilization > 80% por 5 minutos
+- NetworkIn/NetworkOut fuera de rangos esperados
+- Health check failures en ALB
+- Latencia de respuesta > 2 segundos
 
-El flujo inicia cuando un cliente envía una solicitud de pago al Application Load Balador a través de HTTPS. El ALB, protegido por WAF contra ataques comunes y por AWS Shield contra DDoS, terminates la conexión TLS y reenvía la solicitud a la función Lambda de procesamiento de pagos desplegada en las subredes privadas.
+### Logging
 
-La función Lambda procesa la transacción validando los datos del pago y consultando el motor antifraude, también desplegado como Lambda en las subredes privadas. El resultado de la evaluación antifraude se almacena en DynamoDB con cifrado KMS para su trazabilidad.
+- VPC Flow Logs para análisis de tráfico de red
+- CloudWatch Logs para aplicaciones con retención de 30 días
+- CloudTrail para auditoría de cambios en infraestructura
 
-Los datos persistentes de la transacción se almacenan en RDS PostgreSQL con cifrado en reposo utilizando la clave KMS del entorno. La base de datos opera en configuración Multi-AZ para garantizar la disponibilidad requerida del 99.9%.
+## Optimización de Costos
 
-Finalmente, todos los eventos de la transacción se registran en S3 para auditoría, incluyendo logs de CloudWatch que permiten reconstruir el historial completo de cada transacción. Los logs se cifran con KMS y se retentionan según las políticas de cumplimiento PCI-DSS.
+### Estrategias Aplicadas
 
-## Requisitos de Cumplimiento
+- Reserved Instances para cargas base conocidas
+- Spot Instances para workloads tolerantes a interrupciones
+- Lifecycle policies en S3 para transición automática a Glacier
+- Tags obligatorios en todos los recursos para tracking de costos
 
-La arquitectura implementada está diseñada para cumplir con los requisitos de PCI-DSS nivel 1, que es el nivel más estricto de cumplimiento para procesadores de pagos. A continuación se describen los controles implementados para los requisitos clave del estándar.
+### Tags Requeridos
 
-El requisito 3 de PCI-DSS regarding la protección de datos de holders de tarjetas se satisface mediante el cifrado en reposo de todas las bases de datos y buckets de almacenamiento utilizando claves KMS dedicadas. Las claves tienen rotación anual automática y las políticas de acceso restrictivas garantizan que solo los componentes autorizados pueden descifrar los datos.
+Todos los recursos incluyen los siguientes tags:
 
-El requisito 4 relacionado con la transmisión de datos de holders de tarjetas a través de redes abiertas se cumple utilizando TLS 1.3 para todas las comunicaciones, con certificados gestionados por AWS Certificate Manager. El ALB está configurado para rechazar cualquier conexión que no utilice cifrado válido.
+- Environment: dev | qa | prod
+- Project: payments-network
+- CostCenter: centro-de-costo-configurado
+- Owner: equipo-responsable
+- Compliance: nivel-de-cumplimiento
 
-El requisito 7 sobre la restricción del acceso a los datos de holders de tarjetas por necesidad de conocer se implementa mediante políticas IAM con el principio de menor privilegio. Cada componente tiene únicamente los permisos necesarios para realizar su función específica, sin permisos generales ni acceso a datos que no requiera para su operación.
+## Gobernanza y Cumplimiento
 
-El requisito 10 relacionado con el registro y monitoreo de todos los accesos a los componentes del sistema y los datos de holders de tarjetas se satisface mediante la integración completa con CloudTrail para eventos de gestión, CloudWatch Logs para logs de aplicación, y S3 con versioning para logs de auditoría inmutables.
+### Controles Implementados
 
-## Consideraciones de Costos
+- AWS Config Rules para validación de recursos conformes
+- SCPs (Service Control Policies) a nivel de cuenta
+- AWS GuardDuty para detección de amenazas
+- AWS Security Hub para consolidacion de hallazgos
 
-La infraestructura implementa varias prácticas de optimización de costos que deben considerarse al operar el entorno.
+### Frameworks de Referencia
 
-El etiquetado obligatorio de todos los recursos mediante las tags Name, Environment y CostCenter permite el análisis detallado de costos por servicio y entorno. Los reportes de costos de AWS se pueden filtrar por estas etiquetas para identificar oportunidades de optimización.
+La arquitectura cumple con principios de:
 
-El uso de NAT Gateways por zona de disponibilidad implica costos por hora de uso y por datos procesados. La arquitectura propuesta optimiza este costo al enrutar el tráfico de salida por el NAT Gateway de la misma zona donde se origina la solicitud, minimizando los costos de transferencia entre zonas.
-
-Los buckets de S3 para auditoría utilizan políticas de lifecycle para mover objetos antiguos a clases de almacenamiento más económicas. Los logs de CloudWatch se configuran con retención optimizada por tipo de logs: métricas de alta resolución con retención de 15 días, mientras que los logs de auditoría se retentionan en CloudWatch por 90 días antes de archivarlos en S3 Glacier.
+- PCI-DSS para entornos de pago
+- AWS Well-Architected Framework
+- NIST 800-53 para controles de seguridad
 
 ## Mantenimiento y Operaciones
 
-### Actualización de la Infraestructura
+### Procedimientos de Cambio
 
-Las actualizaciones de la infraestructura se realizan siguiendo el proceso de GitOps implementado. Los cambios se proponen mediante Pull Requests que incluyen el plan de Terraform generado automáticamente por el pipeline de CI/CD. После одобрения и мерджa, pipeline применяет изменения автоматически.
-
-### Monitoreo y Alertas
-
-El sistema implementa monitoreo continuo mediante CloudWatch Dashboards que muestran métricas clave de la infraestructura: latencia del ALB, errores de Lambda, uso de conexiones RDS, y métricas de NAT Gateway. Las alertas de CloudWatch se configuran para notificar al equipo de operaciones cuando las métricas superan los umbrales definidos.
+1. Los cambios se realizan en branches dedicados
+2. Pull request requiere revisión de infraestructura
+3. Plan de Terraform se revisa antes de merge
+4. Apply se ejecuta en ventana de mantenimiento
+5. Rollback procedure documentado para cada cambio
 
 ### Recuperación ante Desastres
 
-La arquitectura implementsa un RTO (Recovery Time Objective) de 15 minutos y un RPO (Recovery Point Objective) de 1 minuto para el sistema de pagos. Esto se logra mediante la replicación Multi-AZ de RDS, la distribución de Lambda functions en múltiples zonas de disponibilidad, y backups automáticos de DynamoDB con point-in-time recovery habilitado. El plan de recuperación ante desastres se documenta por separado y se prueba trimestralmente.
+- RTO (Recovery Time Objective): 4 horas
+- RPO (Recovery Point Objective): 15 minutos
+- Réplicas cruzadas en múltiples AZs
+- Backups automatizados con restauración probada
+
+## Contacto y Soporte
+
+Para cuestiones sobre esta implementación:
+
+- Equipo de Cloud Infrastructure: cloud-infra@empresa.com
+- Seguridad de la Información: security@empresa.com
+- Equipo de Platform Engineering: platform@empresa.com
 
 
-// === ARCHIVO: modules/network/vpc.tf ===
+// === ARCHIVO: environments/dev/terraform.tfvars ===
+# Configuración de desarrollo - Environment de desarrollo para pruebas iniciales
+# Settings: Desarrollo temprano, menor escala, costos optimizados
+
+environment = "dev"
+environment_short = "d"
+
+# Configuración de la VPC
+vpc_cidr = "10.100.0.0/16"
+vpc_name = "pagos-dev-vpc"
+enable_dns_hostnames = true
+enable_dns_support = true
+
+# Configuración de Availability Zones (dev usa 2 AZs para reducir costos)
+availability_zones = ["us-east-1a", "us-east-1b"]
+
+# Subredes públicas - Para ALB, NAT Gateway, servicios que necesitan internet pública
+public_subnet_cidrs = ["10.100.1.0/24", "10.100.2.0/24"]
+public_subnet_names = ["pagos-dev-pub-us-east-1a", "pagos-dev-pub-us-east-1b"]
+map_public_ip_on_launch = true
+
+# Subredes privadas para aplicaciones - Backend de la aplicación
+app_subnet_cidrs = ["10.100.10.0/24", "10.100.11.0/24"]
+app_subnet_names = ["pagos-dev-priv-app-us-east-1a", "pagos-dev-priv-app-us-east-1b"]
+
+# Subredes privadas para datos - Databases y sistemas de almacenamiento
+data_subnet_cidrs = ["10.100.20.0/24", "10.100.21.0/24"]
+data_subnet_names = ["pagos-dev-priv-data-us-east-1a", "pagos-dev-priv-data-us-east-1b"]
+
+# Subredes privadas para servicios de pago - Gateway de pagos, liquidación, antifraude
+payment_subnet_cidrs = ["10.100.30.0/24", "10.100.31.0/24"]
+payment_subnet_names = ["pagos-dev-priv-payment-us-east-1a", "pagos-dev-priv-payment-us-east-1b"]
+
+# Configuración de NAT Gateway (alta disponibilidad en producción, mínimo en dev)
+nat_gateway_count = 1
+nat_gateway_type = "single"
+
+# Configuración de Internet Gateway
+enable_internet_gateway = true
+
+# Configuración de VPN/Direct Connect (no necesario en dev)
+enable_vpn_gateway = false
+
+# Configuración de seguridad - Grupos de seguridad
+# ALB público - Expuesto a internet para pruebas
+alb_security_group_name = "pagos-dev-alb-public-sg"
+alb_port = 443
+alb_protocol = "HTTPS"
+
+# Security group para aplicación
+app_security_group_name = "pagos-dev-app-sg"
+app_allow_ports = [443, 8080]
+app_protocol = "tcp"
+
+# Security group para base de datos
+database_security_group_name = "pagos-dev-db-sg"
+db_port = 5432
+db_protocol = "tcp"
+db_allow_cidrs = ["10.100.10.0/24", "10.100.30.0/24"]
+
+# Security group para servicios de pago
+payment_security_group_name = "pagos-dev-payment-sg"
+payment_port = 8443
+payment_protocol = "tcp"
+payment_allow_cidrs = ["10.100.10.0/24"]
+
+# Configuración de IAM - Roles con menor privilegio
+# Rol para EC2 de aplicación
+app_iam_role_name = "pagos-dev-app-ec2-role"
+app_iam_policy_actions = [
+  "s3:GetObject",
+  "s3:PutObject",
+  "s3:ListBucket",
+  "dynamodb:GetItem",
+  "dynamodb:PutItem",
+  "cloudwatch:PutMetricData",
+  "logs:CreateLogGroup",
+  "logs:PutLogEvents"
+]
+
+# Rol para servicios de pago
+payment_iam_role_name = "pagos-dev-payment-role"
+payment_iam_policy_actions = [
+  "s3:GetObject",
+  "s3:PutObject",
+  "kms:Encrypt",
+  "kms:Decrypt",
+  "kms:GenerateDataKey",
+  "dynamodb:GetItem",
+  "dynamodb:PutItem",
+  "dynamodb:Query"
+]
+
+# Configuración de logging y monitoreo
+enable_vpc_flow_logs = true
+flow_log_destination_type = "cloud-watch-logs"
+log_retention_days = 7
+
+# Alarmas CloudWatch - Configuración básica para dev
+enable_alarms = true
+alarm_cpu_threshold = 80
+alarm_memory_threshold = 85
+alarm_http_5xx_threshold = 5
+
+# Configuración de alta disponibilidad
+# Dev usa menor redundancia para optimizar costos
+multi_az = false
+instance_tenancy = "default"
+
+# Configuración de escalado (dev usa configuración básica)
+asg_min_size = 1
+asg_max_size = 2
+asg_desired_capacity = 1
+asg_health_check_type = "ELB"
+asg_health_check_grace_period = 300
+
+# Configuración de almacenamiento
+root_volume_size = 30
+root_volume_type = "gp3"
+data_volume_size = 100
+data_volume_type = "gp3"
+
+# Configuración de red avanzada
+enable_transit_gateway = false
+enable_private_link = false
+
+# Tags obligatorios para todos los recursos
+common_tags = {
+  Environment = "development"
+  Project = "pagos-seguro"
+  CostCenter = "it-operations"
+  Compliance = "pci-dss"
+  ManagedBy = "terraform"
+  Owner = "cloudops-team"
+}
+
+// === ARCHIVO: environments/qa/terraform.tfvars ===
+# Configuración de QA - Environment de pruebas de integración y QA
+# Settings: Pruebas funcionales, mayor escala que dev, validación de seguridad
+
+environment = "qa"
+environment_short = "q"
+
+# Configuración de la VPC
+vpc_cidr = "10.101.0.0/16"
+vpc_name = "pagos-qa-vpc"
+enable_dns_hostnames = true
+enable_dns_support = true
+
+# Configuración de Availability Zones (QA usa 2 AZs para balance costo/rendimiento)
+availability_zones = ["us-east-1a", "us-east-1b"]
+
+# Subredes públicas
+public_subnet_cidrs = ["10.101.1.0/24", "10.101.2.0/24"]
+public_subnet_names = ["pagos-qa-pub-us-east-1a", "pagos-qa-pub-us-east-1b"]
+map_public_ip_on_launch = true
+
+# Subredes privadas para aplicaciones
+app_subnet_cidrs = ["10.101.10.0/24", "10.101.11.0/24"]
+app_subnet_names = ["pagos-qa-priv-app-us-east-1a", "pagos-qa-priv-app-us-east-1b"]
+
+# Subredes privadas para datos
+data_subnet_cidrs = ["10.101.20.0/24", "10.101.21.0/24"]
+data_subnet_names = ["pagos-qa-priv-data-us-east-1a", "pagos-qa-priv-data-us-east-1b"]
+
+# Subredes privadas para servicios de pago - Mayor segmentación en QA
+payment_subnet_cidrs = ["10.101.30.0/24", "10.101.31.0/24"]
+payment_subnet_names = ["pagos-qa-priv-payment-us-east-1a", "pagos-qa-priv-payment-us-east-1b"]
+
+# Subred dedicada para motor antifraude
+fraud_subnet_cidrs = ["10.101.40.0/24", "10.101.41.0/24"]
+fraud_subnet_names = ["pagos-qa-priv-fraud-us-east-1a", "pagos-qa-priv-fraud-us-east-1b"]
+
+# NAT Gateway - Alta disponibilidad en QA
+nat_gateway_count = 2
+nat_gateway_type = "redundant"
+
+# Internet Gateway
+enable_internet_gateway = true
+
+# VPN para acceso seguro a QA
+enable_vpn_gateway = true
+vpn_connection_type = "ipsec.1"
+
+# Security Groups
+alb_security_group_name = "pagos-qa-alb-public-sg"
+alb_port = 443
+alb_protocol = "HTTPS"
+alb_ssl_policy = "ELBSecurityPolicy-2016-08"
+
+app_security_group_name = "pagos-qa-app-sg"
+app_allow_ports = [443, 8080, 8443]
+app_protocol = "tcp"
+
+database_security_group_name = "pagos-qa-db-sg"
+db_port = 5432
+db_protocol = "tcp"
+db_allow_cidrs = ["10.101.10.0/24", "10.101.30.0/24", "10.101.40.0/24"]
+
+payment_security_group_name = "pagos-qa-payment-sg"
+payment_port = 8443
+payment_protocol = "tcp"
+payment_allow_cidrs = ["10.101.10.0/24"]
+
+fraud_security_group_name = "pagos-qa-fraud-sg"
+fraud_port = 8080
+fraud_protocol = "tcp"
+fraud_allow_cidrs = ["10.101.10.0/24", "10.101.30.0/24"]
+
+# IAM - Políticas más restrictivas en QA simulando producción
+app_iam_role_name = "pagos-qa-app-ec2-role"
+app_iam_policy_actions = [
+  "s3:GetObject",
+  "s3:PutObject",
+  "s3:ListBucket",
+  "dynamodb:GetItem",
+  "dynamodb:PutItem",
+  "dynamodb:Query",
+  "cloudwatch:PutMetricData",
+  "logs:CreateLogGroup",
+  "logs:PutLogEvents",
+  "secretsmanager:GetSecretValue"
+]
+app_iam_resource_restrictions = true
+
+payment_iam_role_name = "pagos-qa-payment-role"
+payment_iam_policy_actions = [
+  "s3:GetObject",
+  "s3:PutObject",
+  "kms:Encrypt",
+  "kms:Decrypt",
+  "kms:GenerateDataKey",
+  "kms:DescribeKey",
+  "dynamodb:GetItem",
+  "dynamodb:PutItem",
+  "dynamodb:Query",
+  "dynamodb:BatchGetItem",
+  "dynamodb:BatchWriteItem"
+]
+payment_iam_resource_restrictions = true
+
+fraud_iam_role_name = "pagos-qa-fraud-role"
+fraud_iam_policy_actions = [
+  "dynamodb:GetItem",
+  "dynamodb:PutItem",
+  "dynamodb:Query",
+  "dynamodb:Scan",
+  "s3:GetObject",
+  "s3:PutObject",
+  "kinesis:GetRecords",
+  "kinesis:GetShardIterator",
+  "kinesis:DescribeStream"
+]
+
+# Configuración de logging - Mayor retención en QA
+enable_vpc_flow_logs = true
+flow_log_destination_type = "cloud-watch-logs"
+log_retention_days = 30
+log_file_format = "parquet"
+
+# Alarmas CloudWatch - Configuración completa para QA
+enable_alarms = true
+alarm_cpu_threshold = 75
+alarm_memory_threshold = 80
+alarm_http_5xx_threshold = 3
+alarm_latency_p95_threshold = 500
+alarm_retry_count_threshold = 3
+alarm_sns_topic_arn = "arn:aws:sns:us-east-1:123456789012:pagos-qa-alarms"
+
+# Alta disponibilidad en QA
+multi_az = true
+instance_tenancy = "default"
+
+# Auto Scaling Group - Configuración de producción ligera
+asg_min_size = 2
+asg_max_size = 4
+asg_desired_capacity = 2
+asg_health_check_type = "ELB"
+asg_health_check_grace_period = 300
+asg_cooldown_period = 300
+asg_scale_up_threshold = 70
+asg_scale_down_threshold = 30
+
+# Almacenamiento
+root_volume_size = 50
+root_volume_type = "gp3"
+data_volume_size = 200
+data_volume_type = "gp3"
+enable_ebs_encryption = true
+
+# Configuración de red avanzada - Preparado para PrivateLink
+enable_transit_gateway = false
+enable_private_link = true
+endpoints = [
+  "s3",
+  "dynamodb",
+  "secretsmanager",
+  "sqs",
+  "sns"
+]
+
+# Tags
+common_tags = {
+  Environment = "qa"
+  Project = "pagos-seguro"
+  CostCenter = "it-operations"
+  Compliance = "pci-dss"
+  ManagedBy = "terraform"
+  Owner = "cloudops-team"
+  QAValidation = "required"
+}
+
+// === ARCHIVO: environments/prod/terraform.tfvars ===
+# Configuración de Producción - Environment de producción para sistema de pagos
+# Settings: Alta disponibilidad, máximo rendimiento, cumplimiento PCI-DSS
+
+environment = "prod"
+environment_short = "p"
+
+# Configuración de la VPC
+vpc_cidr = "10.102.0.0/16"
+vpc_name = "pagos-prod-vpc"
+enable_dns_hostnames = true
+enable_dns_support = true
+
+# Configuración de Availability Zones - 3 AZs para máxima disponibilidad
+availability_zones = ["us-east-1a", "us-east-1b", "us-east-1c"]
+
+# Subredes públicas - Distribuidas en 3 AZs
+public_subnet_cidrs = ["10.102.1.0/24", "10.102.2.0/24", "10.102.3.0/24"]
+public_subnet_names = ["pagos-prod-pub-us-east-1a", "pagos-prod-pub-us-east-1b", "pagos-prod-pub-us-east-1c"]
+map_public_ip_on_launch = true
+
+# Subredes privadas para aplicaciones - 3 AZs
+app_subnet_cidrs = ["10.102.10.0/24", "10.102.11.0/24", "10.102.12.0/24"]
+app_subnet_names = ["pagos-prod-priv-app-us-east-1a", "pagos-prod-priv-app-us-east-1b", "pagos-prod-priv-app-us-east-1c"]
+
+# Subredes privadas para datos - 3 AZs con replicación
+data_subnet_cidrs = ["10.102.20.0/24", "10.102.21.0/24", "10.102.22.0/24"]
+data_subnet_names = ["pagos-prod-priv-data-us-east-1a", "pagos-prod-priv-data-us-east-1b", "pagos-prod-priv-data-us-east-1c"]
+
+# Subredes privadas para servicios de pago - Aislamiento total
+payment_subnet_cidrs = ["10.102.30.0/24", "10.102.31.0/24", "10.102.32.0/24"]
+payment_subnet_names = ["pagos-prod-priv-payment-us-east-1a", "pagos-prod-priv-payment-us-east-1b", "pagos-prod-priv-payment-us-east-1c"]
+
+# Subred dedicada para motor antifraude - Procesamiento crítico
+fraud_subnet_cidrs = ["10.102.40.0/24", "10.102.41.0/24", "10.102.42.0/24"]
+fraud_subnet_names = ["pagos-prod-priv-fraud-us-east-1a", "pagos-prod-priv-fraud-us-east-1b", "pagos-prod-priv-fraud-us-east-1c"]
+
+# Subred para sistema de liquidación
+settlement_subnet_cidrs = ["10.102.50.0/24", "10.102.51.0/24", "10.102.52.0/24"]
+settlement_subnet_names = ["pagos-prod-priv-settlement-us-east-1a", "pagos-prod-priv-settlement-us-east-1b", "pagos-prod-priv-settlement-us-east-1c"]
+
+# NAT Gateway - Alta disponibilidad con redundancia completa
+nat_gateway_count = 3
+nat_gateway_type = "redundant-one-per-az"
+nat_eip_allocation = true
+
+# Internet Gateway -冗余配置
+enable_internet_gateway = true
+igw_redundant = true
+
+# VPN y Direct Connect para conectividad híbrida
+enable_vpn_gateway = true
+vpn_connection_type = "ipsec.1"
+vpn_tunnel_options = {
+  tunnel1 = { encryption = "AES256", integrity = "SHA256", pre_shared_key = "dynamic" }
+  tunnel2 = { encryption = "AES256", integrity = "SHA256", pre_shared_key = "dynamic" }
+}
+enable_direct_connect = true
+direct_connect_location = "eqdc"
+
+# Security Groups - Máxima restricción
+alb_security_group_name = "pagos-prod-alb-public-sg"
+alb_port = 443
+alb_protocol = "HTTPS"
+alb_ssl_policy = "ELBSecurityPolicy-TLS-1-2-2021-07"
+alb_access_logging = true
+alb_deletion_protection = true
+
+app_security_group_name = "pagos-prod-app-sg"
+app_allow_ports = [443, 8443]
+app_protocol = "tcp"
+app_allow_from_security_groups = ["pagos-prod-alb-public-sg"]
+app_intra_vpc_restricted = true
+
+database_security_group_name = "pagos-prod-db-sg"
+db_port = 5432
+db_protocol = "tcp"
+db_allow_cidrs = []
+db_allow_from_security_groups = ["pagos-prod-app-sg", "pagos-prod-payment-sg", "pagos-prod-fraud-sg"]
+db_encryption_enabled = true
+db_audit_logging = true
+
+payment_security_group_name = "pagos-prod-payment-sg"
+payment_port = 8443
+payment_protocol = "tcp"
+payment_allow_cidrs = ["10.102.10.0/24"]
+payment_allow_from_security_groups = ["pagos-prod-app-sg"]
+payment_strict_mode = true
+
+fraud_security_group_name = "pagos-prod-fraud-sg"
+fraud_port = 8080
+fraud_protocol = "tcp"
+fraud_allow_cidrs = ["10.102.10.0/24", "10.102.30.0/24"]
+fraud_allow_from_security_groups = ["pagos-prod-app-sg", "pagos-prod-payment-sg"]
+
+settlement_security_group_name = "pagos-prod-settlement-sg"
+settlement_port = 8080
+settlement_protocol = "tcp"
+settlement_allow_from_security_groups = ["pagos-prod-payment-sg"]
+
+# IAM - Principio de menor privilegio estricto con permisos específicos por recurso
+app_iam_role_name = "pagos-prod-app-ec2-role"
+app_iam_policy_actions = [
+  "s3:GetObject",
+  "s3:PutObject"
+]
+app_iam_resource_arns = [
+  "arn:aws:s3:::pagos-prod-data/*",
+  "arn:aws:s3:::pagos-prod-data",
+  "arn:aws:dynamodb:us-east-1:123456789012:table/pagos-prod-transactions"
+]
+app_iam_condition_keys = ["aws:RequestedRegion", "aws:PrincipalAccount"]
+
+payment_iam_role_name = "pagos-prod-payment-role"
+payment_iam_policy_actions = [
+  "s3:GetObject",
+  "s3:PutObject",
+  "kms:Encrypt",
+  "kms:Decrypt",
+  "kms:GenerateDataKey*"
+]
+payment_iam_resource_arns = [
+  "arn:aws:s3:::pagos-prod-pci/*",
+  "arn:aws:s3:::pagos-prod-pci",
+  "arn:aws:kms:us-east-1:123456789012:key/pagos-prod-master-key",
+  "arn:aws:dynamodb:us-east-1:123456789012:table/pagos-prod-sensitive"
+]
+payment_iam_condition_keys = ["aws:RequestedRegion", "aws:PrincipalAccount", "aws:PrincipalTag/Department"]
+
+fraud_iam_role_name = "pagos-prod-fraud-role"
+fraud_iam_policy_actions = [
+  "dynamodb:GetItem",
+  "dynamodb:PutItem",
+  "dynamodb:Query",
+  "kinesis:GetRecords*"
+]
+fraud_iam_resource_arns = [
+  "arn:aws:dynamodb:us-east-1:123456789012:table/pagos-prod-fraud*",
+  "arn:aws:kinesis:us-east-1:123456789012:stream/pagos-prod-fraud-stream"
+]
+
+settlement_iam_role_name = "pagos-prod-settlement-role"
+settlement_iam_policy_actions = [
+  "dynamodb:GetItem",
+  "dynamodb:PutItem",
+  "dynamodb:Query",
+  "s3:GetObject",
+  "s3:PutObject",
+  "sqs:ReceiveMessage",
+  "sqs:DeleteMessage"
+]
+settlement_iam_resource_arns = [
+  "arn:aws:dynamodb:us-east-1:123456789012:table/pagos-prod-settlement*",
+  "arn:aws:s3:::pagos-prod-settlement/*",
+  "arn:aws:sqs:us-east-1:123456789012:pagos-prod-settlement-queue"
+]
+
+# Configuración de logging - Completa con auditoría
+enable_vpc_flow_logs = true
+flow_log_destination_type = "cloud-watch-logs"
+log_retention_days = 90
+log_file_format = "parquet"
+log_compression = "gzip"
+flow_log_max_aggregation_interval = 60
+
+# CloudWatch - Monitoreo completo con métricas personalizadas
+enable_alarms = true
+alarm_cpu_threshold = 70
+alarm_memory_threshold = 75
+alarm_http_5xx_threshold = 1
+alarm_http_4xx_threshold = 10
+alarm_latency_p95_threshold = 200
+alarm_latency_p99_threshold = 500
+alarm_retry_count_threshold = 2
+alarm_queue_depth_threshold = 1000
+alarm_connection_errors_threshold = 5
+alarm_sns_topic_arn = "arn:aws:sns:us-east-1:123456789012:pagos-prod-alarms"
+alarm_escalation_policy = "pagos-oncall"
+
+# Alta disponibilidad - Configuración completa
+multi_az = true
+instance_tenancy = "dedicated"
+enable_aurora_multi_az = true
+rds_backup_retention_days = 30
+rds_delete_protection = true
+
+# Auto Scaling - Configuración dinámica
+asg_min_size = 3
+asg_max_size = 10
+asg_desired_capacity = 5
+asg_health_check_type = "ELB"
+asg_health_check_grace_period = 120
+asg_cooldown_period = 180
+asg_scale_up_threshold = 60
+asg_scale_down_threshold = 25
+asg_predictive_scaling = true
+asg_target_value = 70
+
+# Almacenamiento - Cifrado y rendimiento
+root_volume_size = 80
+root_volume_type = "gp3"
+root_volume_iops = 3000
+data_volume_size = 500
+data_volume_type = "gp3"
+data_volume_iops = 10000
+enable_ebs_encryption = true
+kms_key_id = "alias/pagos-prod-ebs"
+
+# Configuración de red avanzada - Transit Gateway y PrivateLink
+enable_transit_gateway = true
+transit_gateway_asn = 64512
+transit_gateway_route_tables = {
+  spoke = "pagos-prod-spoke-rt"
+  shared = "pagos-prod-shared-rt"
+}
+enable_private_link = true
+endpoints = [
+  "s3",
+  "dynamodb",
+  "secretsmanager",
+  "sqs",
+  "sns",
+  "kms",
+  "cloudwatch",
+  "logs"
+]
+
+# DDoS y WAF
+enable_shield_advanced = true
+enable_waf = true
+waf_rules = [
+  "AWSManagedRulesCommonRuleSet",
+  "AWSManagedRulesSQLiRuleSet",
+  "AWSManagedRulesKnownBadInputsRuleSet"
+]
+waf_rate_limit = 1000
+
+# Backup y recuperación
+enable_backup = true
+backup_plan = "pagos-prod-daily"
+backup_copies = 3
+backup_cold_storage = true
+backup_retention_days = 2555
+
+# Tags - Cumplimiento PCI-DSS
+common_tags = {
+  Environment = "production"
+  Project = "pagos-seguro"
+  CostCenter = "it-operations"
+  Compliance = "pci-dss"
+  ManagedBy = "terraform"
+  Owner = "cloudops-team"
+  DataClassification = "confidential"
+  BackupRequired = "true"
+  DRTier = "1"
+  RTO = "15m"
+  RPO = "5m"
+}
+
+
+// === ARCHIVO: modules/network/main.tf ===
+# Módulo de red: define la topología de VPC, subredes, gateways y tablas de rutas
+# Segmentación de red para entorno de pagos con alta disponibilidad
+
+# VPC principal del entorno de pagos
 resource "aws_vpc" "main" {
   cidr_block           = var.vpc_cidr
   enable_dns_hostnames = true
   enable_dns_support   = true
-
-  tags = merge(
-    var.common_tags,
-    {
-      Name        = "${var.project_name}-vpc-${var.environment}"
-      Purpose     = "Infraestructura principal de red"
-      Layer       = "network"
-      ManagedBy   = "terraform"
-    }
-  )
+  tags = {
+    Name        = "${var.project_name}-vpc-${var.environment}"
+    Environment = var.environment
+    Project     = var.project_name
+    ManagedBy   = "terraform"
+  }
 }
 
-resource "aws_default_security_group" "vpc_default" {
+# Internet Gateway para salida a internet desde subredes públicas
+resource "aws_internet_gateway" "main" {
   vpc_id = aws_vpc.main.id
-
-  ingress = []
-  egress  = []
-
-  tags = merge(
-    var.common_tags,
-    {
-      Name        = "${var.project_name}-default-sg-${var.environment}"
-      Description = "Security group por defecto - restringir todo tráfico"
-    }
-  )
+  tags = {
+    Name        = "${var.project_name}-igw-${var.environment}"
+    Environment = var.environment
+    Project     = var.project_name
+  }
 }
 
-resource "aws_vpc_endpoint" "s3_endpoint" {
-  vpc_id       = aws_vpc.main.id
-  service_name = "com.amazonaws.${var.region}.s3"
-  route_table_ids = concat(
-    [aws_route_table.public.id],
-    [aws_route_table.private.id]
-  )
-
-  tags = merge(
-    var.common_tags,
-    {
-      Name        = "${var.project_name}-s3-endpoint-${var.environment}"
-      Purpose    = "Acceso privado a S3 sin tráfico por internet"
-    }
-  )
+# Elastic IP para NAT Gateway en cada AZ
+resource "aws_eip" "nat_gateway_eip" {
+  count  = length(var.availability_zones)
+  domain = "vpc"
+  tags = {
+    Name        = "${var.project_name}-nat-eip-${var.availability_zones[count.index]}"
+    Environment = var.environment
+  }
+  depends_on = [aws_internet_gateway.main]
 }
 
-resource "aws_vpc_endpoint" "dynamodb_endpoint" {
-  vpc_id       = aws_vpc.main.id
-  service_name = "com.amazonaws.${var.region}.dynamodb"
-  route_table_ids = concat(
-    [aws_route_table.public.id],
-    [aws_route_table.private.id]
-  )
-
-  tags = merge(
-    var.common_tags,
-    {
-      Name        = "${var.project_name}-dynamodb-endpoint-${var.environment}"
-      Purpose    = "Acceso privado a DynamoDB sin tráfico por internet"
-    }
-  )
+# NAT Gateways en cada zona de disponibilidad para salida a internet desde subredes privadas
+resource "aws_nat_gateway" "main" {
+  count         = length(var.availability_zones)
+  allocation_id = aws_eip.nat_gateway_eip[count.index].id
+  subnet_id     = aws_subnet.public[count.index].id
+  tags = {
+    Name        = "${var.project_name}-nat-${var.availability_zones[count.index]}"
+    Environment = var.environment
+    Project     = var.project_name
+  }
+  depends_on = [aws_internet_gateway.main]
 }
 
-resource "aws_vpc_endpoint" "secrets_manager_endpoint" {
-  vpc_id       = aws_vpc.main.id
-  service_name = "com.amazonaws.${var.region}.secretsmanager"
-  route_table_ids = [aws_route_table.private.id]
-
-  tags = merge(
-    var.common_tags,
-    {
-      Name        = "${var.project_name}-secrets-manager-endpoint-${var.environment}"
-      Purpose    = "Acceso privado a Secrets Manager desde subredes privadas"
-    }
-  )
+# Subredes públicas para ALB y componentes que requieren acceso a internet
+resource "aws_subnet" "public" {
+  count                   = length(var.public_subnet_cidrs)
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = var.public_subnet_cidrs[count.index]
+  availability_zone       = var.availability_zones[count.index]
+  map_public_ip_on_launch = true
+  tags = {
+    Name        = "${var.project_name}-public-subnet-${var.availability_zones[count.index]}"
+    Type        = "public"
+    Environment = var.environment
+    Project     = var.project_name
+  }
 }
 
-resource "aws_vpc_endpoint" "ssm_endpoint" {
-  vpc_id       = aws_vpc.main.id
-  service_name = "com.amazonaws.${var.region}.ssm"
-  route_table_ids = [aws_route_table.private.id]
-
-  tags = merge(
-    var.common_tags,
-    {
-      Name        = "${var.project_name}-ssm-endpoint-${var.environment}"
-      Purpose    = "Acceso privado a SSM para gestión de instancias"
-    }
-  )
+# Subredes privadas para instancias de aplicación (gateway de pagos, liquidación, antifraude)
+resource "aws_subnet" "private" {
+  count             = length(var.private_subnet_cidrs)
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = var.private_subnet_cidrs[count.index]
+  availability_zone = var.availability_zones[count.index]
+  tags = {
+    Name        = "${var.project_name}-private-subnet-${var.availability_zones[count.index]}"
+    Type        = "private"
+    Environment = var.environment
+    Project     = var.project_name
+  }
 }
+
+# Subredes de base de datos en capa aislada
+resource "aws_subnet" "database" {
+  count             = length(var.database_subnet_cidrs)
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = var.database_subnet_cidrs[count.index]
+  availability_zone = var.availability_zones[count.index]
+  tags = {
+    Name        = "${var.project_name}-database-subnet-${var.availability_zones[count.index]}"
+    Type        = "database"
+    Environment = var.environment
+    Project     = var.project_name
+  }
+}
+
+# Grupo de subredes de base de datos para RDS Multi-AZ
+resource "aws_subnet_group" "database" {
+  name       = "${var.project_name}-db-subnet-group-${var.environment}"
+  subnet_ids = aws_subnet.database[*].id
+  tags = {
+    Name        = "${var.project_name}-db-subnet-group"
+    Environment = var.environment
+  }
+}
+
+# Tabla de rutas pública: tráfico directo a Internet Gateway
+resource "aws_route_table" "public" {
+  vpc_id = aws_vpc.main.id
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.main.id
+  }
+  tags = {
+    Name        = "${var.project_name}-public-rt-${var.environment}"
+    Type        = "public"
+    Environment = var.environment
+  }
+}
+
+# Tablas de rutas privadas: tráfico a través de NAT Gateway por AZ
+resource "aws_route_table" "private" {
+  count  = length(var.availability_zones)
+  vpc_id = aws_vpc.main.id
+  route {
+    cidr_block     = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.main[count.index].id
+  }
+  tags = {
+    Name        = "${var.project_name}-private-rt-${var.availability_zones[count.index]}"
+    Type        = "private"
+    Environment = var.environment
+  }
+}
+
+# Asociación de subredes públicas con tabla de rutas pública
+resource "aws_route_table_association" "public" {
+  count          = length(aws_subnet.public)
+  subnet_id      = aws_subnet.public[count.index].id
+  route_table_id = aws_route_table.public.id
+}
+
+# Asociación de subredes privadas con sus tablas de rutas por AZ
+resource "aws_route_table_association" "private" {
+  count          = length(aws_subnet.private)
+  subnet_id      = aws_subnet.private[count.index].id
+  route_table_id = aws_route_table.private[count.index].id
+}
+
+// === ARCHIVO: modules/network/outputs.tf ===
+# Outputs del módulo de red: exposición de IDs y ARNs para consumo por otros módulos
 
 output "vpc_id" {
   description = "ID de la VPC principal"
@@ -1613,289 +2558,34 @@ output "vpc_cidr" {
   value       = aws_vpc.main.cidr_block
 }
 
-output "default_security_group_id" {
-  description = "ID del security group por defecto de la VPC"
-  value       = aws_default_security_group.vpc_default.id
+output "internet_gateway_id" {
+  description = "ID del Internet Gateway"
+  value       = aws_internet_gateway.main.id
 }
 
-// === ARCHIVO: modules/network/subnets.tf ===
-locals {
-  availability_zones = var.availability_zones
-  
-  subnets_public = {
-    "public_monitoreo_a" = {
-      cidr_block        = cidrsubnet(var.vpc_cidr, 4, 0)
-      availability_zone = local.availability_zones[0]
-      purpose           = "monitoreo"
-      type              = "public"
-    }
-    "public_monitoreo_b" = {
-      cidr_block        = cidrsubnet(var.vpc_cidr, 4, 1)
-      availability_zone = local.availability_zones[1]
-      purpose           = "monitoreo"
-      type              = "public"
-    }
-    "public_auditoria_a" = {
-      cidr_block        = cidrsubnet(var.vpc_cidr, 4, 2)
-      availability_zone = local.availability_zones[0]
-      purpose           = "auditoria"
-      type              = "public"
-    }
-    "public_auditoria_b" = {
-      cidr_block        = cidrsubnet(var.vpc_cidr, 4, 3)
-      availability_zone = local.availability_zones[1]
-      purpose           = "auditoria"
-      type              = "public"
-    }
-  }
-  
-  subnets_private = {
-    "private_pagos_a" = {
-      cidr_block        = cidrsubnet(var.vpc_cidr, 4, 4)
-      availability_zone = local.availability_zones[0]
-      purpose           = "pagos"
-      type              = "private"
-    }
-    "private_pagos_b" = {
-      cidr_block        = cidrsubnet(var.vpc_cidr, 4, 5)
-      availability_zone = local.availability_zones[1]
-      purpose           = "pagos"
-      type              = "private"
-    }
-    "private_pagos_db_a" = {
-      cidr_block        = cidrsubnet(var.vpc_cidr, 4, 6)
-      availability_zone = local.availability_zones[0]
-      purpose           = "pagos"
-      type              = "private"
-      database          = true
-    }
-    "private_pagos_db_b" = {
-      cidr_block        = cidrsubnet(var.vpc_cidr, 4, 7)
-      availability_zone = local.availability_zones[1]
-      purpose           = "pagos"
-      type              = "private"
-      database          = true
-    }
-    "private_monitoreo_a" = {
-      cidr_block        = cidrsubnet(var.vpc_cidr, 4, 8)
-      availability_zone = local.availability_zones[0]
-      purpose           = "monitoreo"
-      type              = "private"
-    }
-    "private_monitoreo_b" = {
-      cidr_block        = cidrsubnet(var.vpc_cidr, 4, 9)
-      availability_zone = local.availability_zones[1]
-      purpose           = "monitoreo"
-      type              = "private"
-    }
-    "private_auditoria_a" = {
-      cidr_block        = cidrsubnet(var.vpc_cidr, 4, 10)
-      availability_zone = local.availability_zones[0]
-      purpose           = "auditoria"
-      type              = "private"
-    }
-    "private_auditoria_b" = {
-      cidr_block        = cidrsubnet(var.vpc_cidr, 4, 11)
-      availability_zone = local.availability_zones[1]
-      purpose           = "auditoria"
-      type              = "private"
-    }
-  }
-  
-  all_subnets = merge(local.subnets_public, local.subnets_private)
-}
-
-resource "aws_subnet" "main" {
-  for_each = local.all_subnets
-
-  vpc_id                  = var.vpc_id
-  cidr_block              = each.value.cidr_block
-  availability_zone       = each.value.availability_zone
-  map_public_ip_on_launch = each.value.type == "public"
-
-  tags = merge(
-    var.common_tags,
-    {
-      Name               = "${var.project_name}-${each.key}-${var.environment}"
-      Purpose            = each.value.purpose
-      Type               = each.value.type
-      Layer              = "network"
-      AvailabilityZone   = each.value.availability_zone
-      CostCenter         = var.cost_center
-      Environment        = var.environment
-      "kubernetes.io/cluster/${var.project_name}-${var.environment}" = "shared"
-    }
-  )
-}
-
-resource "aws_subnet_group" "pagos" {
-  name = "${var.project_name}-pagos-subnet-group-${var.environment}"
-  
-  subnet_ids = [for k, v in aws_subnet.main : aws_subnet.main[k].id if v.tags.Purpose == "pagos"]
-  
-  tags = merge(
-    var.common_tags,
-    {
-      Name        = "${var.project_name}-pagos-subnet-group-${var.environment}"
-      Description = "Grupo de subredes para servicios de pagos"
-    }
-  )
-}
-
-resource "aws_subnet_group" "monitoreo" {
-  name = "${var.project_name}-monitoreo-subnet-group-${var.environment}"
-  
-  subnet_ids = [for k, v in aws_subnet.main : aws_subnet.main[k].id if v.tags.Purpose == "monitoreo"]
-  
-  tags = merge(
-    var.common_tags,
-    {
-      Name        = "${var.project_name}-monitoreo-subnet-group-${var.environment}"
-      Description = "Grupo de subredes para servicios de monitoreo"
-    }
-  )
-}
-
-resource "aws_subnet_group" "auditoria" {
-  name = "${var.project_name}-auditoria-subnet-group-${var.environment}"
-  
-  subnet_ids = [for k, v in aws_subnet.main : aws_subnet.main[k].id if v.tags.Purpose == "auditoria"]
-  
-  tags = merge(
-    var.common_tags,
-    {
-      Name        = "${var.project_name}-auditoria-subnet-group-${var.environment}"
-      Description = "Grupo de subredes para servicios de auditoría"
-    }
-  )
-}
-
-output "subnet_ids" {
-  description = "Mapeo de IDs de subredes por nombre"
-  value       = { for k, v in aws_subnet.main : k => v.id }
+output "nat_gateway_ids" {
+  description = "IDs de los NAT Gateways por zona de disponibilidad"
+  value       = aws_nat_gateway.main[*].id
 }
 
 output "public_subnet_ids" {
-  description = "IDs de subredes públicas"
-  value       = [for k, v in aws_subnet.main : v.id if v.tags.Type == "public"]
+  description = "IDs de las subredes públicas"
+  value       = aws_subnet.public[*].id
 }
 
 output "private_subnet_ids" {
-  description = "IDs de subredes privadas"
-  value       = [for k, v in aws_subnet.main : v.id if v.tags.Type == "private"]
+  description = "IDs de las subredes privadas"
+  value       = aws_subnet.private[*].id
 }
 
-output "pagos_subnet_ids" {
-  description = "IDs de subredes de pagos"
-  value       = [for k, v in aws_subnet.main : v.id if v.tags.Purpose == "pagos"]
+output "database_subnet_ids" {
+  description = "IDs de las subredes de base de datos"
+  value       = aws_subnet.database[*].id
 }
 
-// === ARCHIVO: modules/network/route_tables.tf ===
-resource "aws_route_table" "public" {
-  vpc_id = var.vpc_id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = var.internet_gateway_id
-  }
-
-  tags = merge(
-    var.common_tags,
-    {
-      Name        = "${var.project_name}-public-rt-${var.environment}"
-      Description = "Tabla de rutas para subredes públicas - acceso a internet via IGW"
-      Type        = "public"
-      Layer       = "network"
-    }
-  )
-}
-
-resource "aws_route_table" "private" {
-  vpc_id = var.vpc_id
-
-  route {
-    cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = var.nat_gateway_id
-  }
-
-  route {
-    cidr_block                = "10.0.0.0/8"
-    vpc_peering_connection_id = var.vpc_peering_connection_id
-  }
-
-  tags = merge(
-    var.common_tags,
-    {
-      Name        = "${var.project_name}-private-rt-${var.environment}"
-      Description = "Tabla de rutas para subredes privadas - acceso a internet via NAT Gateway"
-      Type        = "private"
-      Layer       = "network"
-    }
-  )
-}
-
-resource "aws_route_table" "pagos" {
-  vpc_id = var.vpc_id
-
-  route {
-    cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = var.nat_gateway_id
-  }
-
-  route {
-    cidr_block                = "10.0.0.0/8"
-    vpc_peering_connection_id = var.vpc_peering_connection_id
-  }
-
-  tags = merge(
-    var.common_tags,
-    {
-      Name        = "${var.project_name}-pagos-rt-${var.environment}"
-      Description = "Tabla de rutas dedicada para subredes de pagos"
-      Purpose     = "pagos"
-      Type        = "private"
-      Layer       = "network"
-    }
-  )
-}
-
-resource "aws_route_table_association" "public" {
-  for_each = toset(var.public_subnet_ids)
-
-  subnet_id      = each.value
-  route_table_id = aws_route_table.public.id
-}
-
-resource "aws_route_table_association" "private" {
-  for_each = toset([for s in var.private_subnet_ids : s if s != var.pagos_db_subnet_ids[0] && s != var.pagos_db_subnet_ids[1]])
-
-  subnet_id      = each.value
-  route_table_id = aws_route_table.private.id
-}
-
-resource "aws_route_table_association" "pagos" {
-  for_each = toset([for s in var.private_subnet_ids : s if s == var.pagos_db_subnet_ids[0] || s == var.pagos_db_subnet_ids[1]])
-
-  subnet_id      = each.value
-  route_table_id = aws_route_table.pagos.id
-}
-
-resource "aws_route" "vpn_to_onpremises" {
-  route_table_id = aws_route_table.private.id
-  destination_cidr_block = var.onpremises_cidr
-  gateway_id = var.vpn_gateway_id
-}
-
-resource "aws_route" "s3_via_endpoint" {
-  route_table_id = aws_route_table.private.id
-  destination_prefix_list_id = "pl-63a5400a"
-  vpc_endpoint_id = var.s3_endpoint_id
-}
-
-resource "aws_route" "dynamodb_via_endpoint" {
-  route_table_id = aws_route_table.private.id
-  destination_prefix_list_id = "pl-63a6400b"
-  vpc_endpoint_id = var.dynamodb_endpoint_id
+output "database_subnet_group_id" {
+  description = "ID del grupo de subredes de base de datos"
+  value       = aws_subnet_group.database.id
 }
 
 output "public_route_table_id" {
@@ -1903,1383 +2593,659 @@ output "public_route_table_id" {
   value       = aws_route_table.public.id
 }
 
-output "private_route_table_id" {
-  description = "ID de la tabla de rutas privada"
-  value       = aws_route_table.private.id
+output "private_route_table_ids" {
+  description = "IDs de las tablas de rutas privadas por AZ"
+  value       = aws_route_table.private[*].id
 }
 
-output "pagos_route_table_id" {
-  description = "ID de la tabla de rutas de pagos"
-  value       = aws_route_table.pagos.id
+output "public_subnet_cidrs" {
+  description = "Bloques CIDR de las subredes públicas"
+  value       = var.public_subnet_cidrs
 }
 
-
-// === ARCHIVO: modules/network/internet_gateway.tf ===
-resource "aws_internet_gateway" "main" {
-  vpc_id = var.vpc_id
-
-  tags = merge(
-    var.common_tags,
-    {
-      Name        = "${var.environment}-igw"
-      Description = "Internet Gateway para subredes públicas del entorno de pagos"
-      Component   = "Network"
-      Layer       = "Public"
-    }
-  )
-
-  lifecycle {
-    create_before_destroy = true
-  }
+output "private_subnet_cidrs" {
+  description = "Bloques CIDR de las subredes privadas"
+  value       = var.private_subnet_cidrs
 }
 
-resource "aws_ec2_tag" "igw_cost_tag" {
-  resource_id = aws_internet_gateway.main.id
-  key         = "CostCenter"
-  value       = var.cost_center
+output "database_subnet_cidrs" {
+  description = "Bloques CIDR de las subredes de base de datos"
+  value       = var.database_subnet_cidrs
 }
 
-output "internet_gateway_id" {
-  description = "ID del Internet Gateway"
-  value       = aws_internet_gateway.main.id
+output "availability_zones" {
+  description = "Zonas de disponibilidad configuradas"
+  value       = var.availability_zones
 }
 
-output "internet_gateway_arn" {
-  description = "ARN del Internet Gateway"
-  value       = aws_internet_gateway.main.arn
-}
+// === ARCHIVO: modules/security/main.tf ===
+# Módulo de seguridad: políticas IAM, grupos de seguridad y NACLs
+# Aplicación del principio de menor privilegio para entorno de pagos
 
-// === ARCHIVO: modules/network/nat_gateway.tf ===
-resource "aws_eip" "nat" {
-  domain = "vpc"
-
-  tags = merge(
-    var.common_tags,
-    {
-      Name        = "${var.environment}-nat-eip"
-      Description = "Elastic IP para NAT Gateway"
-      Component   = "Network"
-      Layer       = "Public"
-    }
-  )
-
-  lifecycle {
-    create_before_destroy = true
-  }
-}
-
-resource "aws_nat_gateway" "main" {
-  allocation_id = aws_eip.nat.id
-  subnet_id     = var.public_subnet_id
-
-  tags = merge(
-    var.common_tags,
-    {
-      Name        = "${var.environment}-nat-gw"
-      Description = "NAT Gateway para acceso a internet desde subredes privadas"
-      Component   = "Network"
-      Layer       = "Private"
-      Purpose     = "Egress-to-Internet"
-    }
-  )
-
-  lifecycle {
-    create_before_destroy = true
-  }
-}
-
-resource "aws_ec2_tag" "nat_cost_tag" {
-  resource_id = aws_nat_gateway.main.id
-  key         = "CostCenter"
-  value       = var.cost_center
-}
-
-output "nat_gateway_id" {
-  description = "ID del NAT Gateway"
-  value       = aws_nat_gateway.main.id
-}
-
-output "nat_gateway_arn" {
-  description = "ARN del NAT Gateway"
-  value       = aws_nat_gateway.main.arn
-}
-
-output "nat_eip_allocation_id" {
-  description = "Allocation ID de la EIP asociada al NAT Gateway"
-  value       = aws_eip.nat.id
-}
-
-// === ARCHIVO: modules/security/security_groups.tf ===
-// Security Group para el servicio de pagos
-resource "aws_security_group" "pagos" {
-  name        = "${var.environment}-sg-pagos"
-  description = "Security Group para el servicio de pagos con reglas de menor privilegio"
+# Grupo de seguridad para ALB público: permite tráfico HTTP/HTTPS desde internet
+resource "aws_security_group" "alb" {
+  name        = "${var.project_name}-alb-sg-${var.environment}"
+  description = "Grupo de seguridad para Application Load Balancer público"
   vpc_id      = var.vpc_id
-
-  tags = merge(
-    var.common_tags,
-    {
-      Name        = "${var.environment}-sg-pagos"
-      Description = "SG para servicio de procesamiento de pagos"
-      Component   = "Pagos"
-      Layer       = "Private"
-      Compliance  = "PCI-DSS"
-    }
-  )
+  tags = {
+    Name        = "${var.project_name}-alb-sg"
+    Environment = var.environment
+    Component   = "alb"
+  }
 }
 
-resource "aws_vpc_security_group_ingress_rule" "pagos_ingress_https" {
-  security_group_id = aws_security_group.pagos.id
-  cidr_ipv4         = var.subnet_pagos_cidr
-  from_port         = 443
-  to_port           = 443
-  protocol          = "tcp"
-  description       = "Permitir HTTPS desde ALB hacia servicio de pagos"
-}
-
-resource "aws_vpc_security_group_ingress_rule" "pagos_ingress_postgres" {
-  security_group_id = aws_security_group.pagos.id
-  cidr_ipv4         = var.subnet_rds_cidr
-  from_port         = 5432
-  to_port           = 5432
-  protocol          = "tcp"
-  description       = "Permitir PostgreSQL desde subred de base de datos"
-}
-
-resource "aws_vpc_security_group_ingress_rule" "pagos_ingress_monitoring" {
-  security_group_id = aws_security_group.pagos.id
-  cidr_ipv4         = var.subnet_monitoring_cidr
-  from_port         = 9090
-  to_port           = 9090
-  protocol          = "tcp"
-  description       = "Permitir métricas de Prometheus desde subred de monitoreo"
-}
-
-resource "aws_vpc_security_group_egress_rule" "pagos_egress_nat" {
-  security_group_id = aws_security_group.pagos.id
+# Regla de entrada: HTTPS desde cualquier lugar
+resource "aws_vpc_security_group_ingress_rule" "alb_https" {
+  security_group_id = aws_security_group.alb.id
   cidr_ipv4         = "0.0.0.0/0"
   from_port         = 443
   to_port           = 443
-  protocol          = "tcp"
-  description       = "Permitir salida HTTPS hacia internet via NAT para APIs externas"
+  ip_protocol       = "tcp"
+  description       = "Permitir HTTPS desde internet"
 }
 
-resource "aws_vpc_security_group_egress_rule" "pagos_egress_antifraude" {
-  security_group_id = aws_security_group.pagos.id
-  cidr_ipv4         = var.subnet_antifraude_cidr
-  from_port         = 8080
-  to_port           = 8080
-  protocol          = "tcp"
-  description       = "Permitir comunicación con servicio antifraude"
-}
-
-resource "aws_vpc_security_group_egress_rule" "pagos_egress_buro" {
-  security_group_id = aws_security_group.pagos.id
-  cidr_ipv4         = var.subnet_buro_cidr
-  from_port         = 8080
-  to_port           = 8080
-  protocol          = "tcp"
-  description       = "Permitir comunicación con buró de riesgos"
-}
-
-// Security Group para el servicio antifraude
-resource "aws_security_group" "antifraude" {
-  name        = "${var.environment}-sg-antifraude"
-  description = "Security Group para el motor antifraude"
-  vpc_id      = var.vpc_id
-
-  tags = merge(
-    var.common_tags,
-    {
-      Name        = "${var.environment}-sg-antifraude"
-      Description = "SG para motor de detección de fraude"
-      Component   = "Antifraude"
-      Layer       = "Private"
-      Compliance  = "PCI-DSS"
-    }
-  )
-}
-
-resource "aws_vpc_security_group_ingress_rule" "antifraude_ingress_pagos" {
-  security_group_id = aws_security_group.antifraude.id
-  cidr_ipv4         = var.subnet_pagos_cidr
-  from_port         = 8080
-  to_port           = 8080
-  protocol          = "tcp"
-  description       = "Permitir requests del servicio de pagos"
-}
-
-resource "aws_vpc_security_group_ingress_rule" "antifraude_ingress_ml" {
-  security_group_id = aws_security_group.antifraude.id
-  cidr_ipv4         = var.subnet_antifraude_cidr
-  from_port         = 8081
-  to_port           = 8081
-  protocol          = "tcp"
-  description       = "Permitir inferencia de modelo ML interno"
-}
-
-resource "aws_vpc_security_group_egress_rule" "antifraude_egress_dynamodb" {
-  security_group_id = aws_security_group.antifraude.id
-  cidr_ipv4         = var.subnet_antifraude_cidr
-  from_port         = 443
-  to_port           = 443
-  protocol          = "tcp"
-  description       = "Permitir acceso a DynamoDB para cache de decisiones"
-}
-
-// Security Group para el buró de riesgos
-resource "aws_security_group" "buro_riesgos" {
-  name        = "${var.environment}-sg-buro-riesgos"
-  description = "Security Group para el buró de riesgos externo"
-  vpc_id      = var.vpc_id
-
-  tags = merge(
-    var.common_tags,
-    {
-      Name        = "${var.environment}-sg-buro-riesgos"
-      Description = "SG para consulta a buró de riesgos"
-      Component   = "BuroRiesgos"
-      Layer       = "Private"
-      Compliance  = "PCI-DSS"
-    }
-  )
-}
-
-resource "aws_vpc_security_group_ingress_rule" "buro_ingress_pagos" {
-  security_group_id = aws_security_group.buro_riesgos.id
-  cidr_ipv4         = var.subnet_pagos_cidr
-  from_port         = 8080
-  to_port           = 8080
-  protocol          = "tcp"
-  description       = "Permitir requests del servicio de pagos"
-}
-
-resource "aws_vpc_security_group_egress_rule" "buro_egress_external" {
-  security_group_id = aws_security_group.buro_riesgos.id
+# Regla de entrada: HTTP desde cualquier lugar
+resource "aws_vpc_security_group_ingress_rule" "alb_http" {
+  security_group_id = aws_security_group.alb.id
   cidr_ipv4         = "0.0.0.0/0"
-  from_port         = 443
-  to_port           = 443
-  protocol          = "tcp"
-  description       = "Permitir salida hacia API externa del buró"
+  from_port         = 80
+  to_port           = 80
+  ip_protocol       = "tcp"
+  description       = "Permitir HTTP desde internet"
 }
 
-// Security Group para el sistema de liquidación
-resource "aws_security_group" "liquidacion" {
-  name        = "${var.environment}-sg-liquidacion"
-  description = "Security Group para el sistema de liquidación"
+# Regla de salida: todo el tráfico hacia VPC
+resource "aws_vpc_security_group_ingress_rule" "alb_to_internal" {
+  security_group_id            = aws_security_group.alb.id
+  referenced_security_group_id = aws_security_group.app.id
+  from_port                    = 443
+  to_port                      = 443
+  ip_protocol                  = "tcp"
+  description                  = "Permitir tráfico al grupo de aplicaciones"
+}
+
+# Grupo de seguridad para instancias de aplicación (gateway de pagos, liquidación, antifraude)
+resource "aws_security_group" "app" {
+  name        = "${var.project_name}-app-sg-${var.environment}"
+  description = "Grupo de seguridad para instancias de aplicación"
   vpc_id      = var.vpc_id
-
-  tags = merge(
-    var.common_tags,
-    {
-      Name        = "${var.environment}-sg-liquidacion"
-      Description = "SG para sistema de liquidación de transacciones"
-      Component   = "Liquidacion"
-      Layer       = "Private"
-      Compliance  = "PCI-DSS"
-    }
-  )
-}
-
-resource "aws_vpc_security_group_ingress_rule" "liquidacion_ingress_pagos" {
-  security_group_id = aws_security_group.liquidacion.id
-  cidr_ipv4         = var.subnet_pagos_cidr
-  from_port         = 8082
-  to_port           = 8082
-  protocol          = "tcp"
-  description       = "Permitir eventos de transacción completada desde pagos"
-}
-
-resource "aws_vpc_security_group_ingress_rule" "liquidacion_ingress_antifraude" {
-  security_group_id = aws_security_group.liquidacion.id
-  cidr_ipv4         = var.subnet_antifraude_cidr
-  from_port         = 8082
-  to_port           = 8082
-  protocol          = "tcp"
-  description       = "Permitir resultados de riesgo desde antifraude"
-}
-
-resource "aws_vpc_security_group_egress_rule" "liquidacion_egress_rds" {
-  security_group_id = aws_security_group.liquidacion.id
-  cidr_ipv4         = var.subnet_rds_cidr
-  from_port         = 5432
-  to_port           = 5432
-  protocol          = "tcp"
-  description       = "Permitir escritura a base de datos de liquidación"
-}
-
-resource "aws_vpc_security_group_egress_rule" "liquidacion_egress_s3" {
-  security_group_id = aws_security_group.liquidacion.id
-  cidr_ipv4         = "0.0.0.0/0"
-  from_port         = 443
-  to_port           = 443
-  protocol          = "tcp"
-  description       = "Permitir escritura a S3 para reportes"
-}
-
-output "sg_pagos_id" {
-  description = "ID del Security Group de pagos"
-  value       = aws_security_group.pagos.id
-}
-
-output "sg_antifraude_id" {
-  description = "ID del Security Group de antifraude"
-  value       = aws_security_group.antifraude.id
-}
-
-output "sg_buro_riesgos_id" {
-  description = "ID del Security Group del buró de riesgos"
-  value       = aws_security_group.buro_riesgos.id
-}
-
-output "sg_liquidacion_id" {
-  description = "ID del Security Group de liquidación"
-  value       = aws_security_group.liquidacion.id
-}
-
-
-// === ARCHIVO: modules/security/iam.tf ===
-resource "aws_iam_role" "lambda_execution_role" {
-  name = "lambda-execution-role-${var.environment}"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "lambda.amazonaws.com"
-        }
-      }
-    ]
-  })
-  tags = merge(var.common_tags, { Name = "lambda-execution-role-${var.environment}" })
-}
-
-resource "aws_iam_role_policy" "lambda_basic_execution_policy" {
-  name = "lambda-basic-execution-policy-${var.environment}"
-  role = aws_iam_role.lambda_execution_role.id
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "logs:CreateLogGroup",
-          "logs:CreateLogStream",
-          "logs:PutLogEvents"
-        ]
-        Resource = "arn:aws:logs:${var.aws_region}:${var.account_id}:log-group:/aws/lambda/${var.environment}/*:*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "kms:Decrypt",
-          "kms:Encrypt",
-          "kms:GenerateDataKey"
-        ]
-        Resource = "arn:aws:kms:${var.aws_region}:${var.account_id}:key/${var.kms_key_id}"
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy" "lambda_vpc_access_policy" {
-  name = "lambda-vpc-access-policy-${var.environment}"
-  role = aws_iam_role.lambda_execution_role.id
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "ec2:CreateNetworkInterface",
-          "ec2:DescribeNetworkInterfaces",
-          "ec2:DeleteNetworkInterface"
-        ]
-        Resource = "*"
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role" "antifraud_lambda_role" {
-  name = "antifraud-lambda-role-${var.environment}"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "lambda.amazonaws.com"
-        }
-      }
-    ]
-  })
-  tags = merge(var.common_tags, { Name = "antifraud-lambda-role-${var.environment}" })
-}
-
-resource "aws_iam_role_policy" "antifraud_policy" {
-  name = "antifraud-policy-${var.environment}"
-  role = aws_iam_role.antifraud_lambda_role.id
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "dynamodb:GetItem",
-          "dynamodb:PutItem",
-          "dynamodb:Query"
-        ]
-        Resource = "arn:aws:dynamodb:${var.aws_region}:${var.account_id}:table/${var.fraud_detection_table}"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "dynamodb:DescribeTable"
-        ]
-        Resource = "arn:aws:dynamodb:${var.aws_region}:${var.account_id}:table/${var.fraud_detection_table}"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "secretsmanager:GetSecretValue"
-        ]
-        Resource = "arn:aws:secretsmanager:${var.aws_region}:${var.account_id}:secret:antifraud/*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "kms:Decrypt"
-        ]
-        Resource = "arn:aws:kms:${var.aws_region}:${var.account_id}:key/${var.kms_key_id}"
-        Condition = {
-          StringEquals = {
-            "kms:ViaService" = "dynamodb.${var.aws_region}.amazonaws.com"
-          }
-        }
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role" "settlement_lambda_role" {
-  name = "settlement-lambda-role-${var.environment}"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "lambda.amazonaws.com"
-        }
-      }
-    ]
-  })
-  tags = merge(var.common_tags, { Name = "settlement-lambda-role-${var.environment}" })
-}
-
-resource "aws_iam_role_policy" "settlement_policy" {
-  name = "settlement-policy-${var.environment}"
-  role = aws_iam_role.settlement_lambda_role.id
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "dynamodb:GetItem",
-          "dynamodb:PutItem",
-          "dynamodb:UpdateItem",
-          "dynamodb:Query"
-        ]
-        Resource = "arn:aws:dynamodb:${var.aws_region}:${var.account_id}:table/${var.settlement_table}"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "rds:DescribeDBInstances"
-        ]
-        Resource = "*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "secretsmanager:GetSecretValue"
-        ]
-        Resource = "arn:aws:secretsmanager:${var.aws_region}:${var.account_id}:secret:settlement/*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "kms:Decrypt",
-          "kms:Encrypt"
-        ]
-        Resource = "arn:aws:kms:${var.aws_region}:${var.account_id}:key/${var.kms_key_id}"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "sqs:ReceiveMessage",
-          "sqs:DeleteMessage",
-          "sqs:GetQueueAttributes"
-        ]
-        Resource = "arn:aws:sqs:${var.aws_region}:${var.account_id}:${var.environment}-settlement-queue"
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role" "rds_monitoring_role" {
-  name = "rds-monitoring-role-${var.environment}"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "monitoring.rds.amazonaws.com"
-        }
-      }
-    ]
-  })
-  tags = merge(var.common_tags, { Name = "rds-monitoring-role-${var.environment}" })
-}
-
-resource "aws_iam_role_policy_attachment" "rds_monitoring_enhanced" {
-  role = aws_iam_role.rds_monitoring_role.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole"
-}
-
-resource "aws_iam_role" "alb_access_logs_role" {
-  name = "alb-access-logs-role-${var.environment}"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "elasticloadbalancing.amazonaws.com"
-        }
-      }
-    ]
-  })
-  tags = merge(var.common_tags, { Name = "alb-access-logs-role-${var.environment}" })
-}
-
-resource "aws_iam_role_policy" "alb_access_logs_policy" {
-  name = "alb-access-logs-policy-${var.environment}"
-  role = aws_iam_role.alb_access_logs_role.id
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:PutObject"
-        ]
-        Resource = "arn:aws:s3:::${var.alb_logs_bucket}/*"
-      }
-    ]
-  })
-}
-
-resource "aws_iam_instance_profile" "ec2_instance_profile" {
-  name = "ec2-instance-profile-${var.environment}"
-  role = aws_iam_role.lambda_execution_role.name
-  tags = merge(var.common_tags, { Name = "ec2-instance-profile-${var.environment}" })
-}
-
-// === ARCHIVO: modules/security/kms.tf ===
-resource "aws_kms_key" "payments_master_key" {
-  description = "Master KMS key for payments encryption in ${var.environment}"
-  key_usage = "ENCRYPT_DECRYPT"
-  customer_master_key_spec = "SYMMETRIC_DEFAULT"
-  enable_key_rotation = true
-  deletion_window_in_days = 30
-  tags = merge(var.common_tags, {
-    Name = "payments-master-key-${var.environment}"
-    Purpose = "encryption-master"
-  })
-}
-
-resource "aws_kms_alias" "payments_master_key_alias" {
-  name = "alias/payments-master-key-${var.environment}"
-  target_key_id = aws_kms_key.payments_master_key.key_id
-}
-
-resource "aws_kms_key" "rds_encryption_key" {
-  description = "KMS key for RDS database encryption in ${var.environment}"
-  key_usage = "ENCRYPT_DECRYPT"
-  customer_master_key_spec = "SYMMETRIC_DEFAULT"
-  enable_key_rotation = true
-  deletion_window_in_days = 30
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Id = "rds-key-policy-${var.environment}"
-    Statement = [
-      {
-        Sid = "Enable IAM User Permissions"
-        Effect = "Allow"
-        Principal = {
-          AWS = "arn:aws:iam::${var.account_id}:root"
-        }
-        Action = "kms:*"
-        Resource = "*"
-      },
-      {
-        Sid = "Allow RDS to use the key"
-        Effect = "Allow"
-        Principal = {
-          Service = "rds.amazonaws.com"
-        }
-        Action = [
-          "kms:Encrypt",
-          "kms:Decrypt",
-          "kms:ReEncrypt*",
-          "kms:GenerateDataKey*",
-          "kms:DescribeKey",
-          "kms:CreateGrant"
-        ]
-        Resource = "*"
-        Condition = {
-          StringEquals = {
-            "kms:ViaService" = "rds.${var.aws_region}.amazonaws.com"
-          }
-        }
-      }
-    ]
-  })
-  tags = merge(var.common_tags, {
-    Name = "rds-encryption-key-${var.environment}"
-    Purpose = "rds-encryption"
-  })
-}
-
-resource "aws_kms_alias" "rds_encryption_key_alias" {
-  name = "alias/rds-encryption-key-${var.environment}"
-  target_key_id = aws_kms_key.rds_encryption_key.key_id
-}
-
-resource "aws_kms_key" "s3_encryption_key" {
-  description = "KMS key for S3 bucket encryption in ${var.environment}"
-  key_usage = "ENCRYPT_DECRYPT"
-  customer_master_key_spec = "SYMMETRIC_DEFAULT"
-  enable_key_rotation = true
-  deletion_window_in_days = 30
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Id = "s3-key-policy-${var.environment}"
-    Statement = [
-      {
-        Sid = "Enable IAM User Permissions"
-        Effect = "Allow"
-        Principal = {
-          AWS = "arn:aws:iam::${var.account_id}:root"
-        }
-        Action = "kms:*"
-        Resource = "*"
-      },
-      {
-        Sid = "Allow S3 to use the key for encryption"
-        Effect = "Allow"
-        Principal = {
-          Service = "s3.amazonaws.com"
-        }
-        Action = [
-          "kms:Encrypt",
-          "kms:Decrypt",
-          "kms:ReEncrypt*",
-          "kms:GenerateDataKey*",
-          "kms:DescribeKey",
-          "kms:CreateGrant"
-        ]
-        Resource = "*"
-        Condition = {
-          StringEquals = {
-            "kms:ViaService" = "s3.${var.aws_region}.amazonaws.com"
-          }
-        }
-      }
-    ]
-  })
-  tags = merge(var.common_tags, {
-    Name = "s3-encryption-key-${var.environment}"
-    Purpose = "s3-encryption"
-  })
-}
-
-resource "aws_kms_alias" "s3_encryption_key_alias" {
-  name = "alias/s3-encryption-key-${var.environment}"
-  target_key_id = aws_kms_key.s3_encryption_key.key_id
-}
-
-resource "aws_kms_key" "dynamodb_encryption_key" {
-  description = "KMS key for DynamoDB table encryption in ${var.environment}"
-  key_usage = "ENCRYPT_DECRYPT"
-  customer_master_key_spec = "SYMMETRIC_DEFAULT"
-  enable_key_rotation = true
-  deletion_window_in_days = 30
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Id = "dynamodb-key-policy-${var.environment}"
-    Statement = [
-      {
-        Sid = "Enable IAM User Permissions"
-        Effect = "Allow"
-        Principal = {
-          AWS = "arn:aws:iam::${var.account_id}:root"
-        }
-        Action = "kms:*"
-        Resource = "*"
-      },
-      {
-        Sid = "Allow DynamoDB to use the key"
-        Effect = "Allow"
-        Principal = {
-          Service = "dynamodb.amazonaws.com"
-        }
-        Action = [
-          "kms:Encrypt",
-          "kms:Decrypt",
-          "kms:ReEncrypt*",
-          "kms:GenerateDataKey*",
-          "kms:DescribeKey",
-          "kms:CreateGrant"
-        ]
-        Resource = "*"
-        Condition = {
-          StringEquals = {
-            "kms:ViaService" = "dynamodb.${var.aws_region}.amazonaws.com"
-          }
-        }
-      }
-    ]
-  })
-  tags = merge(var.common_tags, {
-    Name = "dynamodb-encryption-key-${var.environment}"
-    Purpose = "dynamodb-encryption"
-  })
-}
-
-resource "aws_kms_alias" "dynamodb_encryption_key_alias" {
-  name = "alias/dynamodb-encryption-key-${var.environment}"
-  target_key_id = aws_kms_key.dynamodb_encryption_key.key_id
-}
-
-resource "aws_kms_key" "alb_encryption_key" {
-  description = "KMS key for ALB TLS termination in ${var.environment}"
-  key_usage = "ENCRYPT_DECRYPT"
-  customer_master_key_spec = "SYMMETRIC_DEFAULT"
-  enable_key_rotation = true
-  deletion_window_in_days = 30
-  tags = merge(var.common_tags, {
-    Name = "alb-tls-key-${var.environment}"
-    Purpose = "alb-tls-termination"
-  })
-}
-
-resource "aws_kms_alias" "alb_encryption_key_alias" {
-  name = "alias/alb-tls-key-${var.environment}"
-  target_key_id = aws_kms_key.alb_encryption_key.key_id
-}
-
-resource "aws_kms_key" "logs_encryption_key" {
-  description = "KMS key for CloudWatch Logs encryption in ${var.environment}"
-  key_usage = "ENCRYPT_DECRYPT"
-  customer_master_key_spec = "SYMMETRIC_DEFAULT"
-  enable_key_rotation = true
-  deletion_window_in_days = 30
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Id = "logs-key-policy-${var.environment}"
-    Statement = [
-      {
-        Sid = "Enable IAM User Permissions"
-        Effect = "Allow"
-        Principal = {
-          AWS = "arn:aws:iam::${var.account_id}:root"
-        }
-        Action = "kms:*"
-        Resource = "*"
-      },
-      {
-        Sid = "Allow CloudWatch Logs to use the key"
-        Effect = "Allow"
-        Principal = {
-          Service = "logs.${var.aws_region}.amazonaws.com"
-        }
-        Action = [
-          "kms:Encrypt*",
-          "kms:Decrypt*",
-          "kms:ReEncrypt*",
-          "kms:GenerateDataKey*",
-          "kms:Describe*",
-          "kms:CreateGrant"
-        ]
-        Resource = "*"
-        Condition = {
-          StringEquals = {
-            "kms:ViaService" = "logs.${var.aws_region}.amazonaws.com"
-          }
-        }
-      }
-    ]
-  })
-  tags = merge(var.common_tags, {
-    Name = "logs-encryption-key-${var.environment}"
-    Purpose = "cloudwatch-logs-encryption"
-  })
-}
-
-resource "aws_kms_alias" "logs_encryption_key_alias" {
-  name = "alias/logs-encryption-key-${var.environment}"
-  target_key_id = aws_kms_key.logs_encryption_key.key_id
-}
-
-// === ARCHIVO: modules/services/lambda.tf ===
-resource "aws_lambda_function" "antifraud_engine" {
-  filename = "../../lambda/antifraud-engine.zip"
-  function_name = "antifraud-engine-${var.environment}"
-  role = aws_iam_role.antifraud_lambda_role.arn
-  handler = "com.payments.antifraud.Handler"
-  source_code_hash = filebase64sha256("../../lambda/antifraud-engine.zip")
-  runtime = "java17"
-  timeout = 30
-  memory_size = 512
-  ephemeral_storage = {
-    size = 512
-  }
-  environment {
-    variables = {
-      DYNAMODB_TABLE = var.fraud_detection_table
-      KMS_KEY_ID = aws_kms_key.payments_master_key.key_id
-      ENVIRONMENT = var.environment
-      LOG_LEVEL = "INFO"
-    }
-  }
-  vpc_config {
-    subnet_ids = var.private_subnet_ids
-    security_group_ids = [var.lambda_security_group_id]
-  }
-  tags = merge(var.common_tags, {
-    Name = "antifraud-engine-${var.environment}"
-    Component = "antifraud"
-    CostCenter = var.cost_center
-  })
-}
-
-resource "aws_lambda_function" "settlement_engine" {
-  filename = "../../lambda/settlement-engine.zip"
-  function_name = "settlement-engine-${var.environment}"
-  role = aws_iam_role.settlement_lambda_role.arn
-  handler = "com.payments.settlement.Handler"
-  source_code_hash = filebase64sha256("../../lambda/settlement-engine.zip")
-  runtime = "java17"
-  timeout = 300
-  memory_size = 1024
-  ephemeral_storage = {
-    size = 1024
-  }
-  environment {
-    variables = {
-      DYNAMODB_TABLE = var.settlement_table
-      RDS_ENDPOINT = var.rds_endpoint
-      SETTLEMENT_QUEUE_URL = "https://sqs.${var.aws_region}.amazonaws.com/${var.account_id}/${var.environment}-settlement-queue"
-      KMS_KEY_ID = aws_kms_key.payments_master_key.key_id
-      ENVIRONMENT = var.environment
-      LOG_LEVEL = "INFO"
-    }
-  }
-  vpc_config {
-    subnet_ids = var.private_subnet_ids
-    security_group_ids = [var.lambda_security_group_id]
-  }
-  tags = merge(var.common_tags, {
-    Name = "settlement-engine-${var.environment}"
-    Component = "settlement"
-    CostCenter = var.cost_center
-  })
-}
-
-resource "aws_lambda_function" "payment_processor" {
-  filename = "../../lambda/payment-processor.zip"
-  function_name = "payment-processor-${var.environment}"
-  role = aws_iam_role.lambda_execution_role.arn
-  handler = "com.payments.processor.Handler"
-  source_code_hash = filebase64sha256("../../lambda/payment-processor.zip")
-  runtime = "java17"
-  timeout = 60
-  memory_size = 1024
-  ephemeral_storage = {
-    size = 512
-  }
-  environment {
-    variables = {
-      ANTIFRAUD_FUNCTION_NAME = aws_lambda_function.antifraud_engine.function_name
-      SETTLEMENT_FUNCTION_NAME = aws_lambda_function.settlement_engine.function_name
-      KMS_KEY_ID = aws_kms_key.payments_master_key.key_id
-      ENVIRONMENT = var.environment
-      LOG_LEVEL = "INFO"
-      TRANSACTION_TABLE = var.transaction_table
-    }
-  }
-  vpc_config {
-    subnet_ids = var.private_subnet_ids
-    security_group_ids = [var.lambda_security_group_id]
-  }
-  tags = merge(var.common_tags, {
-    Name = "payment-processor-${var.environment}"
-    Component = "payment-processor"
-    CostCenter = var.cost_center
-  })
-}
-
-resource "aws_lambda_function" "risk_scoring" {
-  filename = "../../lambda/risk-scoring.zip"
-  function_name = "risk-scoring-${var.environment}"
-  role = aws_iam_role.antifraud_lambda_role.arn
-  handler = "com.payments.risk.Handler"
-  source_code_hash = filebase64sha256("../../lambda/risk-scoring.zip")
-  runtime = "java17"
-  timeout = 45
-  memory_size = 512
-  ephemeral_storage = {
-    size = 512
-  }
-  environment {
-    variables = {
-      DYNAMODB_TABLE = var.fraud_detection_table
-      KMS_KEY_ID = aws_kms_key.payments_master_key.key_id
-      ENVIRONMENT = var.environment
-      LOG_LEVEL = "INFO"
-      RISK_THRESHOLD = "0.75"
-    }
-  }
-  vpc_config {
-    subnet_ids = var.private_subnet_ids
-    security_group_ids = [var.lambda_security_group_id]
-  }
-  tags = merge(var.common_tags, {
-    Name = "risk-scoring-${var.environment}"
-    Component = "risk-scoring"
-    CostCenter = var.cost_center
-  })
-}
-
-resource "aws_lambda_permission" "allow_alb_invoke_antifraud" {
-  statement_id = "AllowExecutionFromALB"
-  action = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.antifraud_engine.function_name
-  principal = "elasticloadbalancing.amazonaws.com"
-  source_arn = "arn:aws:elasticloadbalancing:${var.aws_region}:${var.account_id}:targetgroup/*/*"
-}
-
-resource "aws_lambda_permission" "allow_api_gateway_invoke_processor" {
-  statement_id = "AllowExecutionFromAPIGateway"
-  action = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.payment_processor.function_name
-  principal = "apigateway.amazonaws.com"
-  source_arn = "arn:aws:execute-api:${var.aws_region}:${var.account_id}:*/*"
-}
-
-resource "aws_lambda_event_source_mapping" "settlement_queue_mapping" {
-  event_source_arn = "arn:aws:sqs:${var.aws_region}:${var.account_id}:${var.environment}-settlement-queue"
-  function_name = aws_lambda_function.settlement_engine.function_name
-  batch_size = 10
-  maximum_record_age_in_seconds = 300
-  bisect_batch_on_function_error = true
-  destination_config {
-    on_failure {
-      destination_arn = "arn:aws:sqs:${var.aws_region}:${var.account_id}:${var.environment}-settlement-dlq"
-    }
+  tags = {
+    Name        = "${var.project_name}-app-sg"
+    Environment = var.environment
+    Component   = "application"
   }
 }
 
-resource "aws_lambda_alias" "antifraud_production" {
-  name = "production"
-  function_name = aws_lambda_function.antifraud_engine.function_name
-  function_version = "$LATEST"
+# Regla de entrada: solo desde ALB
+resource "aws_vpc_security_group_ingress_rule" "app_from_alb" {
+  security_group_id            = aws_security_group.app.id
+  referenced_security_group_id = aws_security_group.alb.id
+  from_port                    = 8443
+  to_port                      = 8443
+  ip_protocol                  = "tcp"
+  description                  = "Permitir tráfico del ALB"
 }
 
-resource "aws_lambda_alias" "settlement_production" {
-  name = "production"
-  function_name = aws_lambda_function.settlement_engine.function_name
-  function_version = "$LATEST"
+# Regla de entrada: SSH desde bastion (si existe)
+resource "aws_vpc_security_group_ingress_rule" "app_from_bastion" {
+  security_group_id            = aws_security_group.app.id
+  referenced_security_group_id = aws_security_group.bastion.id
+  from_port                    = 22
+  to_port                      = 22
+  ip_protocol                  = "tcp"
+  description                  = "Permitir SSH desde bastion"
 }
 
-resource "aws_lambda_provisioned_concurrency_config" "antifraud_provisioned" {
-  function_name = aws_lambda_function.antifraud_engine.function_name
-  qualifier = aws_lambda_alias.antifraud_production.name
-  provisioned_concurrent_executions = 5
+# Grupo de seguridad para base de datos RDS
+resource "aws_security_group" "database" {
+  name        = "${var.project_name}-db-sg-${var.environment}"
+  description = "Grupo de seguridad para base de datos"
+  vpc_id      = var.vpc_id
+  tags = {
+    Name        = "${var.project_name}-db-sg"
+    Environment = var.environment
+    Component   = "database"
+  }
 }
 
-resource "aws_cloudwatch_log_group" "antifraud_logs" {
-  name = "/aws/lambda/${aws_lambda_function.antifraud_engine.function_name}"
-  retention_in_days = 90
-  kms_key_id = aws_kms_key.logs_encryption_key.arn
-  tags = merge(var.common_tags, { Name = "antifraud-logs-${var.environment}" })
+# Regla de entrada: MySQL/PostgreSQL solo desde grupo de aplicación
+resource "aws_vpc_security_group_ingress_rule" "db_from_app" {
+  security_group_id            = aws_security_group.database.id
+  referenced_security_group_id = aws_security_group.app.id
+  from_port                    = 3306
+  to_port                      = 3306
+  ip_protocol                  = "tcp"
+  description                  = "Permitir MySQL desde aplicaciones"
 }
 
-resource "aws_cloudwatch_log_group" "settlement_logs" {
-  name = "/aws/lambda/${aws_lambda_function.settlement_engine.function_name}"
-  retention_in_days = 90
-  kms_key_id = aws_kms_key.logs_encryption_key.arn
-  tags = merge(var.common_tags, { Name = "settlement-logs-${var.environment}" })
+# Grupo de seguridad para bastion host (acceso administrativo)
+resource "aws_security_group" "bastion" {
+  name        = "${var.project_name}-bastion-sg-${var.environment}"
+  description = "Grupo de seguridad para bastion host"
+  vpc_id      = var.vpc_id
+  tags = {
+    Name        = "${var.project_name}-bastion-sg"
+    Environment = var.environment
+    Component   = "bastion"
+  }
 }
 
-resource "aws_cloudwatch_log_group" "payment_processor_logs" {
-  name = "/aws/lambda/${aws_lambda_function.payment_processor.function_name}"
-  retention_in_days = 90
-  kms_key_id = aws_kms_key.logs_encryption_key.arn
-  tags = merge(var.common_tags, { Name = "payment-processor-logs-${var.environment}" })
+# Regla de entrada: SSH solo desde IP corporativo
+resource "aws_vpc_security_group_ingress_rule" "bastion_ssh" {
+  security_group_id = aws_security_group.bastion.id
+  cidr_ipv4         = var.bastion_ssh_cidr
+  from_port         = 22
+  to_port           = 22
+  ip_protocol       = "tcp"
+  description       = "Permitir SSH desde IP corporativo"
 }
 
+# NACL para subredes públicas: permitir tráfico entrante/saliente básico
+resource "aws_network_acl" "public" {
+  vpc_id     = var.vpc_id
+  subnet_ids = var.public_subnet_ids
+  tags = {
+    Name        = "${var.project_name}-nacl-public"
+    Environment = var.environment
+  }
+}
 
-// === ARCHIVO: modules/services/rds.tf ===
-resource "aws_db_subnet_group" "pagos_subnet_group" {
-  name       = "pagos-db-subnet-group"
+# Regla entrante NACL pública: HTTPS
+resource "aws_network_acl_rule" "public_https_in" {
+  network_acl_id = aws_network_acl.public.id
+  rule_number    = 100
+  egress         = false
+  protocol       = "tcp"
+  from_port      = 443
+  to_port        = 443
+  action         = "allow"
+  cidr_block     = "0.0.0.0/0"
+}
+
+# Regla entrante NACL pública: HTTP
+resource "aws_network_acl_rule" "public_http_in" {
+  network_acl_id = aws_network_acl.public.id
+  rule_number    = 110
+  egress         = false
+  protocol       = "tcp"
+  from_port      = 80
+  to_port        = 80
+  action         = "allow"
+  cidr_block     = "0.0.0.0/0"
+}
+
+# Regla saliente NACL pública: tráfico efímero
+resource "aws_network_acl_rule" "public_ephemeral_out" {
+  network_acl_id = aws_network_acl.public.id
+  rule_number    = 100
+  egress         = true
+  protocol       = "tcp"
+  from_port      = 1024
+  to_port        = 65535
+  action         = "allow"
+  cidr_block     = "0.0.0.0/0"
+}
+
+# NACL para subredes privadas: restringir tráfico
+resource "aws_network_acl" "private" {
+  vpc_id     = var.vpc_id
   subnet_ids = var.private_subnet_ids
-  tags = merge(
-    var.common_tags,
-    {
-      Name        = "pagos-db-subnet-group"
-      Description = "Subnets para la base de datos RDS del sistema de pagos"
-    }
-  )
+  tags = {
+    Name        = "${var.project_name}-nacl-private"
+    Environment = var.environment
+  }
 }
-resource "aws_kms_key" "rds_encryption_key" {
-  description             = "KMS key para cifrado en reposo de RDS de pagos"
-  deletion_window_in_days = 10
-  enable_key_rotation     = true
-  tags = merge(
-    var.common_tags,
-    {
-      Name        = "pagos-rds-kms-key"
+
+# Regla entrante NACL privada: solo desde subredes públicas (ALB)
+resource "aws_network_acl_rule" "private_app_in" {
+  network_acl_id = aws_network_acl.private.id
+  rule_number    = 100
+  egress         = false
+  protocol       = "tcp"
+  from_port      = 8443
+  to_port        = 8443
+  action         = "allow"
+  cidr_block     = var.vpc_cidr
+}
+
+# Regla saliente NACL privada: hacia internet vía NAT
+resource "aws_network_acl_rule" "private_nat_out" {
+  network_acl_id = aws_network_acl.private.id
+  rule_number    = 100
+  egress         = true
+  protocol       = "tcp"
+  from_port      = 443
+  to_port        = 443
+  action         = "allow"
+  cidr_block     = "0.0.0.0/0"
+}
+
+# Política IAM para rol de EC2 de aplicación con menor privilegio
+resource "aws_iam_role" "app_instance" {
+  name = "${var.project_name}-app-instance-role-${var.environment}"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = {
+        Service = "ec2.amazonaws.com"
+      }
+    }]
+  })
+  tags = {
+    Environment = var.environment
+  }
+}
+
+# Política IAM: acceso a CloudWatch Logs para aplicaciones
+resource "aws_iam_policy" "app_cloudwatch" {
+  name        = "${var.project_name}-cloudwatch-policy-${var.environment}"
+  description = "Política para escritura de logs en CloudWatch"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ]
+      Resource = "arn:aws:logs:${var.region}:${var.account_id}:log-group:/${var.project_name}/${var.environment}/*"
+    }]
+  })
+}
+
+# Adjuntar política CloudWatch al rol
+resource "aws_iam_role_policy_attachment" "app_cloudwatch_attach" {
+  role       = aws_iam_role.app_instance.name
+  policy_arn = aws_iam_policy.app_cloudwatch.arn
+}
+
+# Política IAM: acceso a S3 para almacenamiento de logs (solo bucket específico)
+resource "aws_iam_policy" "app_s3" {
+  name        = "${var.project_name}-s3-policy-${var.environment}"
+  description = "Política para acceso a S3 con menor privilegio"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "s3:PutObject",
+        "s3:GetObject"
+      ]
+      Resource = "arn:aws:s3:::${var.logs_bucket_name}/*"
+    }]
+  })
+}
+
+# Adjuntar política S3 al rol
+resource "aws_iam_role_policy_attachment" "app_s3_attach" {
+  role       = aws_iam_role.app_instance.name
+  policy_arn = aws_iam_policy.app_s3.arn
+}
+
+# Perfil de instancia EC2
+resource "aws_iam_instance_profile" "app" {
+  name = "${var.project_name}-app-instance-profile-${var.environment}"
+  role = aws_iam_role.app_instance.name
+  tags = {
+    Environment = var.environment
+  }
+}
+
+
+// === ARCHIVO: modules/security/outputs.tf ===
+output "web_security_group_id" {
+  description = "ID del grupo de seguridad para la capa web pública"
+  value       = aws_security_group.web_sg.id
+}
+
+output "app_security_group_id" {
+  description = "ID del grupo de seguridad para la capa de aplicación"
+  value       = aws_security_group.app_sg.id
+}
+
+output "db_security_group_id" {
+  description = "ID del grupo de seguridad para la base de datos"
+  value       = aws_security_group.db_sg.id
+}
+
+output "internal_alb_security_group_id" {
+  description = "ID del grupo de seguridad para el ALB interno"
+  value       = aws_security_group.internal_alb_sg.id
+}
+
+output "payment_gateway_role_arn" {
+  description = "ARN del rol IAM para el gateway de pagos"
+  value       = aws_iam_role.payment_gateway_role.arn
+}
+
+output "settlement_role_arn" {
+  description = "ARN del rol IAM para el sistema de liquidación"
+  value       = aws_iam_role.settlement_role.arn
+}
+
+output "fraud_detection_role_arn" {
+  description = "ARN del rol IAM para el motor antifraude"
+  value       = aws_iam_role.fraud_detection_role.arn
+}
+
+output "ec2_instance_profile_name" {
+  description = "Nombre del perfil de instancia EC2"
+  value       = aws_iam_instance_profile.ec2_profile.name
+}
+
+output "lambda_execution_role_arn" {
+  description = "ARN del rol de ejecución para funciones Lambda"
+  value       = aws_iam_role.lambda_execution_role.arn
+}
+
+output "payment_gateway_policy_arn" {
+  description = "ARN de la política para el gateway de pagos"
+  value       = aws_iam_policy.payment_gateway_policy.arn
+}
+
+output "settlement_policy_arn" {
+  description = "ARN de la política para el sistema de liquidación"
+  value       = aws_iam_policy.settlement_policy.arn
+}
+
+output "fraud_detection_policy_arn" {
+  description = "ARN de la política para el motor antifraude"
+  value       = aws_iam_policy.fraud_detection_policy.arn
+}
+
+output "kms_key_arn" {
+  description = "ARN de la clave KMS para cifrado de datos sensibles"
+  value       = aws_kms_key.payment_key.arn
+}
+
+output "secrets_manager_secret_arn" {
+  description = "ARN del secreto en Secrets Manager para credenciales de pagos"
+  value       = aws_secretsmanager_secret.payment_credentials.arn
+}
+
+output "web_security_group_arn" {
+  description = "ARN del grupo de seguridad web para referencia cruzada"
+  value       = aws_security_group.web_sg.arn
+}
+
+output "app_security_group_arn" {
+  description = "ARN del grupo de seguridad de aplicación"
+  value       = aws_security_group.app_sg.arn
+}
+
+output "db_security_group_arn" {
+  description = "ARN del grupo de seguridad de base de datos"
+  value       = aws_security_group.db_sg.arn
+}
+
+output "vpc_endpoint_s3_id" {
+  description = "ID del endpoint de VPC para S3"
+  value       = aws_vpc_endpoint.s3_endpoint.id
+}
+
+output "vpc_endpoint_secretsmanager_id" {
+  description = "ID del endpoint de VPC para Secrets Manager"
+  value       = aws_vpc_endpoint.secretsmanager_endpoint.id
+}
+
+output "all_security_group_ids" {
+  description = "Mapa con todos los IDs de grupos de seguridad"
+  value       = {
+    web          = aws_security_group.web_sg.id
+    app          = aws_security_group.app_sg.id
+    db           = aws_security_group.db_sg.id
+    internal_alb = aws_security_group.internal_alb_sg.id
+  }
+}
+
+output "all_iam_role_arns" {
+  description = "Mapa con todos los ARNs de roles IAM"
+  value       = {
+    payment_gateway   = aws_iam_role.payment_gateway_role.arn
+    settlement        = aws_iam_role.settlement_role.arn
+    fraud_detection   = aws_iam_role.fraud_detection_role.arn
+    lambda_execution  = aws_iam_role.lambda_execution_role.arn
+  }
+}
+// === ARCHIVO: modules/compute/main.tf ===
+data "aws_ami" "amazon_linux_2023" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["al2023-ami-*-x86_64"]
+  }
+}
+
+data "aws_subnets" "private_app_subnets" {
+  filter {
+    name   = "vpc-id"
+    values = [var.vpc_id]
+  }
+
+  filter {
+    name   = "tag:Type"
+    values = ["private-app"]
+  }
+}
+
+data "aws_subnets" "public_web_subnets" {
+  filter {
+    name   = "vpc-id"
+    values = [var.vpc_id]
+  }
+
+  filter {
+    name   = "tag:Type"
+    values = ["public-web"]
+  }
+}
+
+resource "aws_launch_template" "payment_gateway_lt" {
+  name_prefix   = "payment-gateway-"
+  image_id      = data.aws_ami.amazon_linux_2023.id
+  instance_type = var.payment_gateway_instance_type
+
+  iam_instance_profile {
+    arn = var.ec2_instance_profile_arn
+  }
+
+  vpc_security_group_ids = [var.web_security_group_id, var.app_security_group_id]
+
+  user_data = base64encode(<<-EOF
+              #!/bin/bash
+              yum update -y
+              yum install -y docker nginx
+              systemctl enable docker
+              systemctl start docker
+              docker run -d --name payment-gateway -p 8080:8080 \
+                -e DB_HOST=${var.db_endpoint} \
+                -e FRAUD_DETECTION_ENDPOINT=${var.fraud_detection_endpoint} \
+                -e SETTLEMENT_ENDPOINT=${var.settlement_endpoint} \
+                payment-gateway:latest
+              EOF
+  )
+
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 1
+  }
+
+  monitoring {
+    enabled = true
+  }
+
+  tag_specifications {
+    resource_type = "instance"
+    tags = {
+      Name        = "payment-gateway"
       Environment = var.environment
+      Component   = "payment-gateway"
+      Tier        = "application"
     }
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_instance" "settlement_service" {
+  ami           = data.aws_ami.amazon_linux_2023.id
+  instance_type = var.settlement_instance_type
+  subnet_id     = data.aws_subnets.private_app_subnets.ids[0]
+
+  iam_instance_profile = var.ec2_instance_profile_name
+
+  vpc_security_group_ids = [var.app_security_group_id, var.db_security_group_id]
+
+  user_data = base64encode(<<-EOF
+              #!/bin/bash
+              yum update -y
+              yum install -y java-17-openjdk postgresql15-client
+              useradd -m -s /bin/bash settlement
+              mkdir -p /opt/settlement
+              cd /opt/settlement
+              wget -q https://settlement-service-bucket.s3.amazonaws.com/settlement-service.jar
+              chown -R settlement:settlement /opt/settlement
+              su - settlement -c "java -jar /opt/settlement/settlement-service.jar \
+                --spring.datasource.url=jdbc:postgresql://${var.db_endpoint}/settlement \
+                --server.port=8081"
+              EOF
   )
-}
-resource "aws_kms_alias" "rds_encryption_alias" {
-  name          = "alias/pagos-rds-kms"
-  target_key_id = aws_kms_key.rds_encryption_key.key_id
-}
-resource "aws_db_instance" "pagos_db" {
-  identifier             = "pagos-transactions-db"
-  engine                 = "postgres"
-  engine_version         = "15.4"
-  instance_class         = var.db_instance_class
-  allocated_storage      = var.db_allocated_storage
-  max_allocated_storage  = var.db_max_allocated_storage
-  storage_type           = "gp3"
-  storage_encrypted      = true
-  kms_key_id             = aws_kms_key.rds_encryption_key.arn
-  db_name                = var.db_name
-  username               = var.db_username
-  password               = var.db_password
-  port                   = 5432
-  db_subnet_group_name   = aws_db_subnet_group.pagos_subnet_group.name
-  vpc_security_group_ids = [aws_security_group.rds_pagos.id]
-  multi_az               = var.environment == "prod" ? true : false
-  backup_retention_period = var.db_backup_retention
-  backup_window          = "03:00-04:00"
-  maintenance_window     = "mon:04:00-mon:05:00"
-  skip_final_snapshot    = var.environment != "prod"
-  final_snapshot_identifier = var.environment == "prod" ? "pagos-db-final-snapshot-${var.environment}" : null
-  enabled_cloudwatch_logs_exports = ["postgresql", "upgrade"]
-  performance_insights_enabled = true
-  performance_insights_kms_key_id = aws_kms_key.rds_encryption_key.arn
-  deletion_protection      = var.environment == "prod" ? true : false
-  tags = merge(
-    var.common_tags,
-    {
-      Name        = "pagos-transactions-db"
-      Description = "Base de datos RDS para almacenamiento de transacciones de pago"
-      Tier        = "MissionCritical"
-    }
-  )
-}
-resource "aws_security_group" "rds_pagos" {
-  name        = "sg-rds-pagos"
-  description = "Security group para RDS del sistema de pagos"
-  vpc_id      = var.vpc_id
-  ingress {
-    description     = "Acceso desde aplicaciones de pagos"
-    from_port       = 5432
-    to_port         = 5432
-    protocol        = "tcp"
-    security_groups = [var.app_security_group_id]
+
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "required"
   }
-  ingress {
-    description     = "Acceso desde servicios de monitoreo"
-    from_port       = 5432
-    to_port         = 5432
-    protocol        = "tcp"
-    security_groups = [var.monitoring_security_group_id]
+
+  monitoring = true
+
+  tags = {
+    Name        = "settlement-service"
+    Environment = var.environment
+    Component   = "settlement"
+    Tier        = "application"
   }
-  egress {
-    description = "Salida a internet para actualizaciones"
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0/0"]
-  }
-  tags = merge(
-    var.common_tags,
-    {
-      Name        = "sg-rds-pagos"
-      Description = "SG para RDS - acceso limitado a servicios autorizados"
-    }
-  )
-}
-resource "aws_db_instance" "auditoria_db" {
-  identifier             = "pagos-auditoria-db"
-  engine                 = "postgres"
-  engine_version         = "15.4"
-  instance_class         = var.db_instance_class_auditoria
-  allocated_storage      = var.db_allocated_storage_auditoria
-  max_allocated_storage  = var.db_max_allocated_storage_auditoria
-  storage_type           = "gp3"
-  storage_encrypted      = true
-  kms_key_id             = aws_kms_key.rds_encryption_key.arn
-  db_name                = var.db_name_auditoria
-  username               = var.db_username
-  password               = var.db_password
-  port                   = 5432
-  db_subnet_group_name   = aws_db_subnet_group.pagos_subnet_group.name
-  vpc_security_group_ids = [aws_security_group.rds_auditoria.id]
-  multi_az               = var.environment == "prod" ? true : false
-  backup_retention_period = 30
-  backup_window          = "02:00-03:00"
-  maintenance_window     = "sun:04:00-sun:05:00"
-  skip_final_snapshot    = var.environment != "prod"
-  final_snapshot_identifier = var.environment == "prod" ? "pagos-auditoria-final-snapshot-${var.environment}" : null
-  enabled_cloudwatch_logs_exports = ["postgresql"]
-  performance_insights_enabled = true
-  performance_insights_kms_key_id = aws_kms_key.rds_encryption_key.arn
-  deletion_protection      = true
-  tags = merge(
-    var.common_tags,
-    {
-      Name        = "pagos-auditoria-db"
-      Description = "Base de datos RDS para logs de auditoría del sistema de pagos"
-      Compliance  = "PCI-DSS"
-    }
-  )
-}
-resource "aws_security_group" "rds_auditoria" {
-  name        = "sg-rds-auditoria"
-  description = "Security group para RDS de auditoría"
-  vpc_id      = var.vpc_id
-  ingress {
-    description     = "Acceso desde ALB de auditoría"
-    from_port       = 5432
-    to_port         = 5432
-    protocol        = "tcp"
-    security_groups = [var.alb_security_group_id]
-  }
-  egress {
-    description = "Salida a internet"
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0/0"]
-  }
-  tags = merge(
-    var.common_tags,
-    {
-      Name        = "sg-rds-auditoria"
-      Description = "SG para RDS auditoría - PCI-DSS compliant"
-    }
-  )
-}
-resource "aws_s3_bucket" "rds_backup_bucket" {
-  bucket = "pagos-rds-backups-${var.environment}"
-  tags = merge(
-    var.common_tags,
-    {
-      Name        = "pagos-rds-backups"
-      Description = "Bucket para backups automatizados de RDS"
-    }
-  )
-}
-resource "aws_s3_bucket_server_side_encryption_configuration" "rds_backup_bucket_encryption" {
-  bucket = aws_s3_bucket.rds_backup_bucket.id
-  rule {
-    apply_server_side_encryption_by_default {
-      kms_key_arn = aws_kms_key.rds_encryption_key.arn
-      sse_algorithm = "aws:kms"
-    }
+
+  lifecycle {
+    create_before_destroy = true
   }
 }
-resource "aws_s3_bucket_versioning" "rds_backup_bucket_versioning" {
-  bucket = aws_s3_bucket.rds_backup_bucket.id
-  versioning_configuration {
-    status = "Enabled"
+
+resource "aws_autoscaling_group" "payment_gateway_asg" {
+  name                = "payment-gateway-asg-${var.environment}"
+  vpc_zone_identifier = data.aws_subnets.private_app_subnets.ids
+  desired_capacity    = var.payment_gateway_desired_capacity
+  min_size            = var.payment_gateway_min_size
+  max_size            = var.payment_gateway_max_size
+  health_check_type   = "ELB"
+  health_check_grace_period = 300
+
+  launch_template {
+    id      = aws_launch_template.payment_gateway_lt.id
+    version = "$Latest"
+  }
+
+  tag {
+    key                 = "Name"
+    value               = "payment-gateway-asg"
+    propagate_at_launch = true
+  }
+
+  tag {
+    key                 = "Environment"
+    value               = var.environment
+    propagate_at_launch = true
+  }
+
+  tag {
+    key                 = "Component"
+    value               = "payment-gateway"
+    propagate_at_launch = true
+  }
+
+  lifecycle {
+    create_before_destroy = true
   }
 }
-resource "aws_s3_bucket_public_access_block" "rds_backup_bucket_pab" {
-  bucket = aws_s3_bucket.rds_backup_bucket.id
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
+
+resource "aws_autoscaling_policy" "payment_gateway_scale_up" {
+  name                   = "payment-gateway-scale-up"
+  scaling_adjustment     = 2
+  adjustment_type        = "ChangeInCapacity"
+  cooldown               = 300
+  autoscaling_group_name = aws_autoscaling_group.payment_gateway_asg.name
 }
-// === ARCHIVO: modules/services/alb.tf ===
-resource "aws_lb" "pagos_public_alb" {
-  name               = "pagos-public-alb"
+
+resource "aws_autoscaling_policy" "payment_gateway_scale_down" {
+  name                   = "payment-gateway-scale-down"
+  scaling_adjustment     = -2
+  adjustment_type        = "ChangeInCapacity"
+  cooldown               = 300
+  autoscaling_group_name = aws_autoscaling_group.payment_gateway_asg.name
+}
+
+resource "aws_lb" "public_alb" {
+  name               = "payment-gateway-alb-${var.environment}"
   internal           = false
   load_balancer_type = "application"
-  security_groups    = [aws_security_group.alb_pagos.id]
-  subnets            = var.public_subnet_ids
+  security_groups    = [var.web_security_group_id]
+  subnets            = data.aws_subnets.public_web_subnets.ids
+
   enable_deletion_protection = var.environment == "prod" ? true : false
-  idle_timeout       = 60
-  enable_cross_zone_load_balancing = true
-  tags = merge(
-    var.common_tags,
-    {
-      Name        = "pagos-public-alb"
-      Description = "ALB público para servicios de monitoreo y auditoría del sistema de pagos"
-      Tier        = "Application"
-    }
-  )
+
+  tags = {
+    Name        = "payment-gateway-public-alb"
+    Environment = var.environment
+    Component   = "payment-gateway"
+  }
 }
-resource "aws_security_group" "alb_pagos" {
-  name        = "sg-alb-pagos"
-  description = "Security group para ALB público del sistema de pagos"
-  vpc_id      = var.vpc_id
-  ingress {
-    description = "HTTPS desde internet"
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0/0"]
-  }
-  ingress {
-    description = "HTTP para redirección a HTTPS"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0/0"]
-  }
-  egress {
-    description = "Tráfico a servicios backend"
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    security_groups = [var.app_security_group_id]
-  }
-  egress {
-    description = "Salida a internet para health checks"
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0/0"]
-  }
-  tags = merge(
-    var.common_tags,
-    {
-      Name        = "sg-alb-pagos"
-      Description = "SG para ALB público - acceso HTTPS desde internet"
-    }
-  )
-}
-resource "aws_lb_target_group" "monitoreo_tg" {
-  name     = "pagos-monitoreo-tg"
-  port     = 443
-  protocol = "HTTPS"
+
+resource "aws_lb_target_group" "payment_gateway_tg" {
+  name     = "payment-gateway-tg-${var.environment}"
+  port     = 8080
+  protocol = "HTTP"
   vpc_id   = var.vpc_id
-  target_type = "instance"
+
   health_check {
     enabled             = true
     healthy_threshold   = 2
-    unhealthy_threshold = 2
-    timeout             = 5
     interval            = 30
+    matcher             = "200"
     path                = "/health"
-    matcher             = "200"
-  }
-  lifecycle {
-    create_before_destroy = true
-  }
-  tags = merge(
-    var.common_tags,
-    {
-      Name = "pagos-monitoreo-tg"
-    }
-  )
-}
-resource "aws_lb_target_group" "auditoria_tg" {
-  name     = "pagos-auditoria-tg"
-  port     = 443
-  protocol = "HTTPS"
-  vpc_id   = var.vpc_id
-  target_type = "instance"
-  health_check {
-    enabled             = true
-    healthy_threshold   = 2
-    unhealthy_threshold = 2
+    port                = "traffic-port"
+    protocol            = "HTTP"
     timeout             = 5
-    interval            = 30
-    path                = "/api/health"
-    matcher             = "200"
+    unhealthy_threshold = 2
   }
-  lifecycle {
-    create_before_destroy = true
-  }
-  tags = merge(
-    var.common_tags,
-    {
-      Name = "pagos-auditoria-tg"
-    }
-  )
+
+  target_type = "instance"
 }
-resource "aws_acm_certificate" "pagos_alb_cert" {
-  provider          = aws.us_east_1
-  domain_name       = var.alb_domain_name
-  validation_method = "DNS"
-  subject_alternative_names = var.alb_subject_alternative_names
-  lifecycle {
-    create_before_destroy = true
-  }
-  tags = merge(
-    var.common_tags,
-    {
-      Name = "pagos-alb-cert"
-    }
-  )
-}
-resource "aws_lb_listener" "https_monitoring" {
-  load_balancer_arn = aws_lb.pagos_public_alb.arn
+
+resource "aws_lb_listener" "payment_gateway_https" {
+  load_balancer_arn = aws_lb.public_alb.arn
   port              = "443"
   protocol          = "HTTPS"
   ssl_policy        = "ELBSecurityPolicy-2016-08"
-  certificate_arn   = aws_acm_certificate.pagos_alb_cert.arn
+  certificate_arn   = var.ssl_certificate_arn
+
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.monitoreo_tg.arn
+    target_group_arn = aws_lb_target_group.payment_gateway_tg.arn
   }
 }
-resource "aws_lb_listener" "https_auditoria" {
-  load_balancer_arn = aws_lb.pagos_public_alb.arn
-  port              = "8443"
-  protocol          = "HTTPS"
-  ssl_policy        = "ELBSecurityPolicy-2016-08"
-  certificate_arn   = aws_acm_certificate.pagos_alb_cert.arn
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.auditoria_tg.arn
-  }
-}
-resource "aws_lb_listener" "http_redirect" {
-  load_balancer_arn = aws_lb.pagos_public_alb.arn
+
+resource "aws_lb_listener" "payment_gateway_http_redirect" {
+  load_balancer_arn = aws_lb.public_alb.arn
   port              = "80"
   protocol          = "HTTP"
+
   default_action {
     type = "redirect"
     redirect {
@@ -3289,840 +3255,436 @@ resource "aws_lb_listener" "http_redirect" {
     }
   }
 }
-resource "aws_lb_listener_rule" "monitoreo_path_based" {
-  listener_arn = aws_lb_listener.https_monitoring.arn
-  priority     = 100
-  action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.monitoreo_tg.arn
-  }
-  condition {
-    path_pattern {
-      values = ["/monitoreo/*", "/metrics/*"]
+
+resource "aws_lambda_function" "fraud_detection" {
+  filename         = "${path.module}/../../lambda/fraud-detection.zip"
+  function_name    = "fraud-detection-${var.environment}"
+  role             = var.lambda_execution_role_arn
+  handler          = "com.payments.fraud.FraudDetector::handleRequest"
+  source_code_hash = filebase64sha256("${path.module}/../../lambda/fraud-detection.zip")
+  runtime          = "java17"
+  timeout          = 30
+  memory_size      = 1024
+
+  environment {
+    variables = {
+      ENVIRONMENT     = var.environment
+      FRAUD_DB_HOST   = var.fraud_db_endpoint
+      RISK_THRESHOLD = "85"
     }
   }
-}
-resource "aws_lb_listener_rule" "auditoria_path_based" {
-  listener_arn = aws_lb_listener.https_auditoria.arn
-  priority     = 100
-  action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.auditoria_tg.arn
+
+  vpc_config {
+    subnet_ids         = data.aws_subnets.private_app_subnets.ids
+    security_group_ids = [var.app_security_group_id]
   }
-  condition {
-    path_pattern {
-      values = ["/auditoria/*", "/logs/*"]
-    }
+
+  tags = {
+    Name        = "fraud-detection"
+    Environment = var.environment
+    Component   = "fraud-detection"
   }
 }
-resource "aws_lb" "pagos_internal_alb" {
-  name               = "pagos-internal-alb"
+
+resource "aws_lambda_function_url" "fraud_detection_url" {
+  function_name   = aws_lambda_function.fraud_detection.function_name
+  authorization_type = "AWS_IAM"
+
+  cors {
+    allow_credentials = true
+    allow_origins     = ["https://${var.domain_name}"]
+    allow_methods     = ["POST"]
+    allow_headers     = ["Content-Type", "Authorization"]
+    max_age           = 300
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "payment_gateway_cpu_high" {
+  alarm_name          = "payment-gateway-cpu-high-${var.environment}"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "2"
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/EC2"
+  period              = "120"
+  statistic           = "Average"
+  threshold           = "75"
+
+  dimensions = {
+    AutoScalingGroupName = aws_autoscaling_group.payment_gateway_asg.name
+  }
+
+  alarm_actions = [var.autoscaling_topic_arn]
+  ok_actions    = [var.autoscaling_topic_arn]
+
+  tags = {
+    Environment = var.environment
+    Component   = "payment-gateway"
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "payment_gateway_request_count" {
+  alarm_name          = "payment-gateway-request-count-${var.environment}"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "1"
+  metric_name         = "RequestCountPerTarget"
+  namespace           = "AWS/ApplicationELB"
+  period              = "60"
+  statistic           = "Sum"
+  threshold           = "10000"
+
+  dimensions = {
+    LoadBalancer = aws_lb.public_alb.arn_suffix
+    TargetGroup  = aws_lb_target_group.payment_gateway_tg.arn_suffix
+  }
+
+  alarm_actions = [var.autoscaling_topic_arn]
+
+  tags = {
+    Environment = var.environment
+    Component   = "payment-gateway"
+  }
+}
+
+resource "aws_lb" "internal_nlb" {
+  name               = "internal-nlb-${var.environment}"
   internal           = true
-  load_balancer_type = "application"
-  security_groups    = [aws_security_group.alb_internal_pagos.id]
-  subnets            = var.private_subnet_ids
+  load_balancer_type = "network"
+  security_groups    = [var.internal_alb_security_group_id]
+  subnets            = data.aws_subnets.private_app_subnets.ids
+
   enable_deletion_protection = var.environment == "prod" ? true : false
-  idle_timeout       = 60
-  tags = merge(
-    var.common_tags,
-    {
-      Name        = "pagos-internal-alb"
-      Description = "ALB interno para servicios de pagos"
-    }
-  )
-}
-resource "aws_security_group" "alb_internal_pagos" {
-  name        = "sg-alb-internal-pagos"
-  description = "Security group para ALB interno del sistema de pagos"
-  vpc_id      = var.vpc_id
-  ingress {
-    description     = "Acceso desde subredes privadas"
-    from_port       = 443
-    to_port         = 443
-    protocol        = "tcp"
-    cidr_blocks     = var.private_subnet_cidrs
+
+  tags = {
+    Name        = "internal-nlb"
+    Environment = var.environment
+    Component   = "internal-backend"
   }
-  egress {
-    description = "Tráfico a servicios backend"
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    security_groups = [var.app_security_group_id]
-  }
-  tags = merge(
-    var.common_tags,
-    {
-      Name = "sg-alb-internal-pagos"
-    }
-  )
 }
-resource "aws_lb_target_group" "pagos_api_tg" {
-  name     = "pagos-api-tg"
-  port     = 443
-  protocol = "HTTPS"
+
+resource "aws_lb_target_group" "settlement_tg" {
+  name     = "settlement-tg-${var.environment}"
+  port     = 8081
+  protocol = "TCP"
   vpc_id   = var.vpc_id
-  target_type = "instance"
+
   health_check {
     enabled             = true
     healthy_threshold   = 2
-    unhealthy_threshold = 3
-    timeout             = 10
     interval            = 30
-    path                = "/api/v1/health"
-    matcher             = "200"
+    port                = "8081"
+    protocol            = "TCP"
+    timeout             = 10
+    unhealthy_threshold = 2
   }
-  stickiness {
-    enabled         = true
-    cookie_duration = 3600
-    type            = "lb_cookie"
-  }
-  tags = merge(
-    var.common_tags,
-    {
-      Name = "pagos-api-tg"
-    }
-  )
+
+  target_type = "instance"
 }
-resource "aws_lb_listener" "https_internal_pagos" {
-  load_balancer_arn = aws_lb.pagos_internal_alb.arn
-  port              = "443"
-  protocol          = "HTTPS"
-  ssl_policy        = "ELBSecurityPolicy-TLS-13-2021-06"
-  certificate_arn   = aws_acm_certificate.pagos_alb_cert.arn
+
+resource "aws_lb_target_group_attachment" "settlement_attachment" {
+  target_group_arn = aws_lb_target_group.settlement_tg.arn
+  target_id        = aws_instance.settlement_service.id
+  port             = 8081
+}
+
+resource "aws_lb_listener" "settlement_listener" {
+  load_balancer_arn = aws_lb.internal_nlb.arn
+  port              = "8081"
+  protocol          = "TCP"
+
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.pagos_api_tg.arn
+    target_group_arn = aws_lb_target_group.settlement_tg.arn
   }
 }
-resource "aws_cloudwatch_metric_alarm" "alb_target_response_time" {
-  alarm_name          = "pagos-alb-response-time-high"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = 2
-  metric_name         = "TargetResponseTime"
-  namespace           = "AWS/ApplicationELB"
-  period              = 60
-  statistic           = "Average"
-  threshold           = 1
-  alarm_description   = "Alarm cuando el tiempo de respuesta del ALB supera 1 segundo"
-  alarm_actions       = [var.sns_topic_arn]
-  ok_actions          = [var.sns_topic_arn]
-  dimensions = {
-    LoadBalancer = aws_lb.pagos_public_alb.arn_suffix
+
+resource "aws_appautoscaling_target" "payment_gateway_target" {
+  max_capacity       = var.payment_gateway_max_size
+  min_capacity       = var.payment_gateway_min_size
+  resource_id        = "ASG:${aws_autoscaling_group.payment_gateway_asg.name}"
+  scalable_dimension = "ec2:autoscaling:GroupDesiredCapacity"
+  service_namespace  = "ec2"
+}
+
+resource "aws_appautoscaling_policy" "payment_gateway_target_policy" {
+  name                   = "payment-gateway-autoscaling"
+  policy_type            = "TargetTrackingScaling"
+  resource_id            = aws_appautoscaling_target.payment_gateway_target.resource_id
+  scalable_dimension     = aws_appautoscaling_target.payment_gateway_target.scalable_dimension
+  service_namespace      = aws_appautoscaling_target.payment_gateway_target.service_namespace
+
+  target_tracking_scaling_policy_configuration {
+    predefined_metric_specification {
+      predefined_metric_type = "ASGAverageCPUUtilization"
+    }
+    target_value = 60.0
   }
-  tags = var.common_tags
 }
-resource "aws_cloudwatch_metric_alarm" "alb_target_healthy_hosts" {
-  alarm_name          = "pagos-alb-healthy-hosts-low"
-  comparison_operator = "LessThanThreshold"
-  evaluation_periods  = 2
-  metric_name         = "HealthyHostCount"
-  namespace           = "AWS/ApplicationELB"
-  period              = 60
-  statistic           = "Minimum"
-  threshold           = 1
-  alarm_description   = "Alarm cuando hay menos de 1 host sano en el target group"
-  alarm_actions       = [var.sns_topic_arn]
-  ok_actions          = [var.sns_topic_arn]
-  dimensions = {
-    LoadBalancer = aws_lb.pagos_public_alb.arn_suffix
-    TargetGroup  = aws_lb_target_group.monitoreo_tg.arn_suffix
+// === ARCHIVO: modules/compute/outputs.tf ===
+output "public_alb_arn" {
+  description = "ARN del balanceador de carga público para el gateway de pagos"
+  value       = aws_lb.public_alb.arn
+}
+
+output "public_alb_dns_name" {
+  description = "Nombre DNS del balanceador de carga público"
+  value       = aws_lb.public_alb.dns_name
+}
+
+output "public_alb_zone_id" {
+  description = "Zone ID del balanceador de carga público para Route 53"
+  value       = aws_lb.public_alb.zone_id
+}
+
+output "public_alb_security_group_id" {
+  description = "ID del security group asociado al ALB público"
+  value       = var.web_security_group_id
+}
+
+output "internal_nlb_arn" {
+  description = "ARN del balanceador de carga interno para servicios backend"
+  value       = aws_lb.internal_nlb.arn
+}
+
+output "internal_nlb_dns_name" {
+  description = "Nombre DNS del balanceador de carga interno"
+  value       = aws_lb.internal_nlb.dns_name
+}
+
+output "internal_nlb_zone_id" {
+  description = "Zone ID del balanceador de carga interno"
+  value       = aws_lb.internal_nlb.zone_id
+}
+
+output "payment_gateway_target_group_arn" {
+  description = "ARN del target group del gateway de pagos"
+  value       = aws_lb_target_group.payment_gateway_tg.arn
+}
+
+output "settlement_target_group_arn" {
+  description = "ARN del target group del servicio de liquidación"
+  value       = aws_lb_target_group.settlement_tg.arn
+}
+
+output "settlement_service_instance_id" {
+  description = "ID de la instancia del servicio de liquidación"
+  value       = aws_instance.settlement_service.id
+}
+
+output "settlement_service_private_ip" {
+  description = "IP privada de la instancia del servicio de liquidación"
+  value       = aws_instance.settlement_service.private_ip
+}
+
+output "payment_gateway_asg_name" {
+  description = "Nombre del Auto Scaling Group del gateway de pagos"
+  value       = aws_autoscaling_group.payment_gateway_asg.name
+}
+
+output "payment_gateway_asg_desired_capacity" {
+  description = "Capacidad deseada del Auto Scaling Group"
+  value       = aws_autoscaling_group.payment_gateway_asg.desired_capacity
+}
+
+output "payment_gateway_asg_min_size" {
+  description = "Tamaño mínimo del Auto Scaling Group"
+  value       = aws_autoscaling_group.payment_gateway_asg.min_size
+}
+
+output "payment_gateway_asg_max_size" {
+  description = "Tamaño máximo del Auto Scaling Group"
+  value       = aws_autoscaling_group.payment_gateway_asg.max_size
+}
+
+output "payment_gateway_launch_template_id" {
+  description = "ID del launch template para el gateway de pagos"
+  value       = aws_launch_template.payment_gateway_lt.id
+}
+
+output "fraud_detection_function_name" {
+  description = "Nombre de la función Lambda de detección de fraude"
+  value       = aws_lambda_function.fraud_detection.function_name
+}
+
+output "fraud_detection_function_arn" {
+  description = "ARN de la función Lambda de detección de fraude"
+  value       = aws_lambda_function.fraud_detection.arn
+}
+
+output "fraud_detection_function_url" {
+  description = "URL de la función Lambda de detección de fraude"
+  value       = aws_lambda_function_url.fraud_detection_url.function_url
+}
+
+output "fraud_detection_qualified_arn" {
+  description = "ARN calificado de la función Lambda (para aliases)"
+  value       = aws_lambda_function.fraud_detection.qualified_arn
+}
+
+output "public_alb_listener_https_arn" {
+  description = "ARN del listener HTTPS del ALB público"
+  value       = aws_lb_listener.payment_gateway_https.arn
+}
+
+output "internal_nlb_listener_arn" {
+  description = "ARN del listener del NLB interno"
+  value       = aws_lb_listener.settlement_listener.arn
+}
+
+output "autoscaling_policy_scale_up_arn" {
+  description = "ARN de la política de scale-up del Auto Scaling Group"
+  value       = aws_autoscaling_policy.payment_gateway_scale_up.arn
+}
+
+output "autoscaling_policy_scale_down_arn" {
+  description = "ARN de la política de scale-down del Auto Scaling Group"
+  value       = aws_autoscaling_policy.payment_gateway_scale_down.arn
+}
+
+output "appautoscaling_target_id" {
+  description = "ID del target de App Autoscaling para el ASG"
+  value       = aws_appautoscaling_target.payment_gateway_target.id
+}
+
+output "cloudwatch_alarm_cpu_high_name" {
+  description = "Nombre de la alarma de CPU alto para el gateway de pagos"
+  value       = aws_cloudwatch_metric_alarm.payment_gateway_cpu_high.alarm_name
+}
+
+output "cloudwatch_alarm_request_count_name" {
+  description = "Nombre de la alarma de requests por target"
+  value       = aws_cloudwatch_metric_alarm.payment_gateway_request_count.alarm_name
+}
+
+output "all_load_balancers" {
+  description = "Mapa con información de todos los balanceadores de carga"
+  value = {
+    public_alb = {
+      arn       = aws_lb.public_alb.arn
+      dns_name = aws_lb.public_alb.dns_name
+      zone_id  = aws_lb.public_alb.zone_id
+    }
+    internal_nlb = {
+      arn       = aws_lb.internal_nlb.arn
+      dns_name = aws_lb.internal_nlb.dns_name
+      zone_id  = aws_lb.internal_nlb.zone_id
+    }
   }
-  tags = var.common_tags
 }
 
-
-// === ARCHIVO: environments/dev/terraform.tfvars ===
-# =============================================================================
-# Configuración del entorno de DESARROLLO
-# =============================================================================
-# Este archivo contiene los valores de variables específicos para el ambiente
-# de desarrollo. Los valores están optimizados para pruebas locales y costos
-# mínimos, con instancias pequeñas y sin redundancia multi-AZ.
-# =============================================================================
-
-# -----------------------------------------------------------------------------
-# Configuración de Red - VPC y Subredes
-# -----------------------------------------------------------------------------
-environment               = "dev"
-environment_short         = "d"
-vpc_cidr                  = "10.0.0.0/16"
-
-# Subredes públicas - Monitoreo y auditoría (una sola AZ para dev)
-public_subnet_1_cidr      = "10.0.1.0/24"
-public_subnet_2_cidr      = "10.0.2.0/24"
-availability_zone_1       = "us-east-1a"
-availability_zone_2       = "us-east-1b"
-
-# Subredes privadas - Servicios de pago (una sola AZ para dev)
-private_subnet_pagos_1_cidr   = "10.0.10.0/24"
-private_subnet_pagos_2_cidr   = "10.0.11.0/24"
-private_subnet_antifraude_1_cidr = "10.0.20.0/24"
-private_subnet_antifraude_2_cidr = "10.0.21.0/24"
-private_subnet_buro_1_cidr    = "10.0.30.0/24"
-private_subnet_buro_2_cidr    = "10.0.31.0/24"
-private_subnet_liquidacion_1_cidr = "10.0.40.0/24"
-private_subnet_liquidacion_2_cidr = "10.0.41.0/24"
-
-# NAT Gateway - Una sola instancia para desarrollo
-enable_nat_gateway        = true
-single_nat_gateway        = true
-
-# -----------------------------------------------------------------------------
-# Configuración de Servicios - Instancias pequeñas para desarrollo
-# -----------------------------------------------------------------------------
-
-# RDS - Base de datos de pagos (instancia pequeña, sin réplicas)
-rds_instance_class       = "db.t3.micro"
-rds_allocated_storage    = 20
-rds_multi_az              = false
-rds_engine_version        = "15.4"
-
-# Lambda - Funciones serverless para procesamiento de pagos
-lambda_memory_sizes = {
-  originador_pagos   = 128
-  motor_antifraude   = 256
-  buro_riesgos       = 128
-  sistema_liquidacion = 256
+output "all_target_groups" {
+  description = "Mapa con todos los target groups"
+  value = {
+    payment_gateway = aws_lb_target_group.payment_gateway_tg.arn
+    settlement      = aws_lb_target_group.settlement_tg.arn
+  }
 }
 
-lambda_timeout = {
-  originador_pagos   = 30
-  motor_antifraude   = 60
-  buro_riesgos       = 30
-  sistema_liquidacion = 120
+output "compute_summary" {
+  description = "Resumen de la infraestructura de cómputo desplegada"
+  value = {
+    public_alb_endpoint            = aws_lb.public_alb.dns_name
+    internal_nlb_endpoint          = aws_lb.internal_nlb.dns_name
+    fraud_detection_endpoint       = aws_lambda_function_url.fraud_detection_url.function_url
+    payment_gateway_asg_instances  = aws_autoscaling_group.payment_gateway_asg.desired_capacity
+    settlement_instance_private_ip = aws_instance.settlement_service.private_ip
+    environment                    = var.environment
+  }
 }
 
-# ALB - Balanceador de carga (instancia pequeña)
-alb_type                = "application"
-alb_enable_deletion_protection = false
-alb_idle_timeout        = 60
-
-# -----------------------------------------------------------------------------
-# Configuración de Seguridad - Políticas restrictivas para dev
-# -----------------------------------------------------------------------------
-
-# KMS - Cifrado
-kms_key_administrators = ["arn:aws:iam::123456789012:user/dev-admin"]
-kms_key_users          = ["arn:aws:iam::123456789012:user/dev-user"]
-enable_kms_rotation    = false
-
-# IAM - Roles con permisos mínimos para desarrollo
-iam_role_permissions_boundary = "arn:aws:iam::123456789012:policy/dev-permissions-boundary"
-
-# Security Groups - Puertos restringidos para dev
-allowed_ssh_cidrs       = ["10.0.0.0/16"]
-allowed_https_cidrs     = ["0.0.0.0/0"]
-allowed_mgmt_cidrs      = ["10.0.0.0/16"]
-
-# -----------------------------------------------------------------------------
-# Etiquetas obligatorias para optimización de costos
-# -----------------------------------------------------------------------------
-tags = {
-  Environment     = "dev"
-  CostCenter      = "pagos-dev"
-  Owner           = "equipo-pagos"
-  Project         = "red-pagos-segura"
-  Compliance      = "PCI-DSS"
-  Monitoring      = "enabled"
-  Backup          = "daily"
-}
-
-# -----------------------------------------------------------------------------
-# Configuración de Observabilidad
-# -----------------------------------------------------------------------------
-alarm_email              = "dev-alerts@empresa.com"
-log_retention_days      = 7
-enable_vpc_flow_logs    = false
-enable_cloudwatch_logs  = true
-
-# -----------------------------------------------------------------------------
-# Configuración de Alta Disponibilidad (reducida para dev)
-# -----------------------------------------------------------------------------
-enable_deletion_protection = false
-backup_retention_days   = 7
-rto_minutes             = 60
-rpo_minutes             = 30
-
-// === ARCHIVO: environments/qa/terraform.tfvars ===
-# =============================================================================
-# Configuración del entorno de QA
-# =============================================================================
-# Este archivo contiene los valores de variables específicos para el ambiente
-# de QA. Los valores reflejan un ambiente de pruebas más representativo con
-# instancias medianas, configuración de seguridad reforzada y capacidad de
-# pruebas de carga. Incluye redundancia básica en una zona de disponibilidad.
-# =============================================================================
-
-# -----------------------------------------------------------------------------
-# Configuración de Red - VPC y Subredes
-# -----------------------------------------------------------------------------
-environment               = "qa"
-environment_short         = "q"
-vpc_cidr                  = "10.1.0.0/16"
-
-# Subredes públicas - Monitoreo y auditoría (dos AZ para QA)
-public_subnet_1_cidr      = "10.1.1.0/24"
-public_subnet_2_cidr      = "10.1.2.0/24"
-availability_zone_1       = "us-east-1a"
-availability_zone_2       = "us-east-1b"
-
-# Subredes privadas - Servicios de pago (dos AZ para QA)
-private_subnet_pagos_1_cidr   = "10.1.10.0/24"
-private_subnet_pagos_2_cidr   = "10.1.11.0/24"
-private_subnet_antifraude_1_cidr = "10.1.20.0/24"
-private_subnet_antifraude_2_cidr = "10.1.21.0/24"
-private_subnet_buro_1_cidr    = "10.1.30.0/24"
-private_subnet_buro_2_cidr    = "10.1.31.0/24"
-private_subnet_liquidacion_1_cidr = "10.1.40.0/24"
-private_subnet_liquidacion_2_cidr = "10.1.41.0/24"
-
-# NAT Gateway - Alta disponibilidad en QA (una por AZ)
-enable_nat_gateway        = true
-single_nat_gateway        = false
-
-# -----------------------------------------------------------------------------
-# Configuración de Servicios - Instancias medianas para QA
-# -----------------------------------------------------------------------------
-
-# RDS - Base de datos de pagos (instancia mediana, standby en otra AZ)
-rds_instance_class       = "db.t3.medium"
-rds_allocated_storage    = 50
-rds_multi_az              = true
-rds_engine_version        = "15.4"
-
-# Lambda - Funciones serverless para procesamiento de pagos
-lambda_memory_sizes = {
-  originador_pagos   = 256
-  motor_antifraude   = 512
-  buro_riesgos       = 256
-  sistema_liquidacion = 512
-}
-
-lambda_timeout = {
-  originador_pagos   = 60
-  motor_antifraude   = 90
-  buro_riesgos       = 60
-  sistema_liquidacion = 180
-}
-
-# ALB - Balanceador de carga (instancia mediana)
-alb_type                = "application"
-alb_enable_deletion_protection = true
-alb_idle_timeout        = 60
-
-# -----------------------------------------------------------------------------
-# Configuración de Seguridad - Políticas más restrictivas para QA
-# -----------------------------------------------------------------------------
-
-# KMS - Cifrado con rotación habilitada
-kms_key_administrators = ["arn:aws:iam::123456789012:user/qa-admin", "arn:aws:iam::123456789012:role/qa-automation"]
-kms_key_users          = ["arn:aws:iam::123456789012:user/qa-user", "arn:aws:iam::123456789012:role/qa-app-role"]
-enable_kms_rotation    = true
-
-# IAM - Roles con permisos específicos por servicio
-iam_role_permissions_boundary = "arn:aws:iam::123456789012:policy/qa-permissions-boundary"
-
-# Security Groups - Puertos más restrictivos para QA
-allowed_ssh_cidrs       = ["10.1.0.0/16", "172.16.0.0/12"]
-allowed_https_cidrs     = ["10.0.0.0/8"]
-allowed_mgmt_cidrs      = ["10.1.0.0/16", "172.16.0.0/12"]
-
-# -----------------------------------------------------------------------------
-# Etiquetas obligatorias para optimización de costos
-# -----------------------------------------------------------------------------
-tags = {
-  Environment     = "qa"
-  CostCenter      = "pagos-qa"
-  Owner           = "equipo-pagos"
-  Project         = "red-pagos-segura"
-  Compliance      = "PCI-DSS"
-  Monitoring      = "enabled"
-  Backup          = "daily"
-  DataClassification = "confidential"
-}
-
-# -----------------------------------------------------------------------------
-# Configuración de Observabilidad
-# -----------------------------------------------------------------------------
-alarm_email              = "qa-alerts@empresa.com"
-log_retention_days      = 14
-enable_vpc_flow_logs    = true
-enable_cloudwatch_logs  = true
-
-# -----------------------------------------------------------------------------
-# Configuración de Alta Disponibilidad
-# -----------------------------------------------------------------------------
-enable_deletion_protection = true
-backup_retention_days   = 14
-rto_minutes             = 30
-rpo_minutes             = 15
-
-// === ARCHIVO: environments/prod/terraform.tfvars ===
-# =============================================================================
-# Configuración del entorno de PRODUCCIÓN
-# =============================================================================
-# Este archivo contiene los valores de variables específicos para el ambiente
-# de producción. Los valores están optimizados para alta disponibilidad con
-# instancias grandes, redundancia multi-AZ, cifrado obligatorio y todas las
-# medidas de seguridad habilitadas. Cumple con los requisitos de 10,000 TPS
-# y SLA 99.9% para el sistema de pagos.
-# =============================================================================
-
-# -----------------------------------------------------------------------------
-# Configuración de Red - VPC y Subredes
-# -----------------------------------------------------------------------------
-environment               = "prod"
-environment_short         = "p"
-vpc_cidr                  = "10.2.0.0/16"
-
-# Subredes públicas - Monitoreo y auditoría (tres AZ para alta disponibilidad)
-public_subnet_1_cidr      = "10.2.1.0/24"
-public_subnet_2_cidr      = "10.2.2.0/24"
-public_subnet_3_cidr      = "10.2.3.0/24"
-availability_zone_1       = "us-east-1a"
-availability_zone_2       = "us-east-1b"
-availability_zone_3       = "us-east-1c"
-
-# Subredes privadas - Servicios de pago (tres AZ para producción)
-private_subnet_pagos_1_cidr   = "10.2.10.0/24"
-private_subnet_pagos_2_cidr   = "10.2.11.0/24"
-private_subnet_pagos_3_cidr   = "10.2.12.0/24"
-private_subnet_antifraude_1_cidr = "10.2.20.0/24"
-private_subnet_antifraude_2_cidr = "10.2.21.0/24"
-private_subnet_antifraude_3_cidr = "10.2.22.0/24"
-private_subnet_buro_1_cidr    = "10.2.30.0/24"
-private_subnet_buro_2_cidr    = "10.2.31.0/24"
-private_subnet_buro_3_cidr    = "10.2.32.0/24"
-private_subnet_liquidacion_1_cidr = "10.2.40.0/24"
-private_subnet_liquidacion_2_cidr = "10.2.41.0/24"
-private_subnet_liquidacion_3_cidr = "10.2.42.0/24"
-
-# NAT Gateway - Alta disponibilidad (una por AZ en prod)
-enable_nat_gateway        = true
-single_nat_gateway        = false
-
-# -----------------------------------------------------------------------------
-# Configuración de Servicios - Instancias grandes para producción
-# -----------------------------------------------------------------------------
-
-# RDS - Base de datos de pagos (instancia grande, multi-AZ completo)
-rds_instance_class       = "db.r6g.large"
-rds_allocated_storage    = 200
-rds_multi_az              = true
-rds_engine_version        = "15.4"
-rds_backup_retention_days = 30
-rds_performance_insights  = true
-
-# Lambda - Funciones serverless para procesamiento de pagos (alta concurrencia)
-lambda_memory_sizes = {
-  originador_pagos   = 1024
-  motor_antifraude   = 2048
-  buro_riesgos       = 1024
-  sistema_liquidacion = 2048
-}
-
-lambda_timeout = {
-  originador_pagos   = 120
-  motor_antifraude   = 180
-  buro_riesgos       = 120
-  sistema_liquidacion = 300
-}
-
-lambda_provisioned_concurrency = {
-  originador_pagos   = 10
-  motor_antifraude   = 20
-  buro_riesgos       = 10
-  sistema_liquidacion = 20
-}
-
-# ALB - Balanceador de carga de producción con alta disponibilidad
-alb_type                = "application"
-alb_enable_deletion_protection = true
-alb_idle_timeout        = 60
-alb_enable_waf          = true
-alb_ssl_policy          = "ELBSecurityPolicy-TLS-1-2-2021-07"
-
-# -----------------------------------------------------------------------------
-# Configuración de Seguridad - Máxima restricción para producción
-# -----------------------------------------------------------------------------
-
-# KMS - Cifrado con rotación obligatoria y claves separadas por servicio
-kms_key_administrators = [
-  "arn:aws:iam::123456789012:user/prod-admin",
-  "arn:aws:iam::123456789012:role/prod-automation",
-  "arn:aws:iam::123456789012:root"
-]
-kms_key_users          = [
-  "arn:aws:iam::123456789012:role/prod-app-role",
-  "arn:aws:iam::123456789012:role/prod-lambda-role"
-]
-enable_kms_rotation    = true
-kms_key_usage          = "ENCRYPT_DECRYPT"
-
-# IAM - Roles con permisos mínimos y políticas inline específicas
-iam_role_permissions_boundary = "arn:aws:iam::123456789012:policy/prod-permissions-boundary"
-iam_enable_audit       = true
-iam_session_duration   = 43200
-
-# Security Groups - Solo IPs específicas para producción
-allowed_ssh_cidrs       = ["10.2.0.0/16"]
-allowed_https_cidrs     = ["10.0.0.0/8"]
-allowed_mgmt_cidrs      = ["10.2.0.0/16"]
-
-# WAF - Web Application Firewall habilitado
-waf_enabled            = true
-waf_rules = [
-  "AWSManagedRulesCommonRuleSet",
-  "AWSManagedRulesSQLiRuleSet",
-  "AWSManagedRulesKnownBadInputsRuleSet"
-]
-
-# -----------------------------------------------------------------------------
-# Etiquetas obligatorias para optimización de costos y gobierno
-# -----------------------------------------------------------------------------
-tags = {
-  Environment       = "prod"
-  CostCenter        = "pagos-prod"
-  Owner             = "equipo-pagos"
-  Project           = "red-pagos-segura"
-  Compliance        = "PCI-DSS"
-  Monitoring        = "enabled"
-  Backup            = "hourly"
-  DataClassification = "restricted"
-  SLA               = "99.9"
-  ThroughputTarget  = "10000-TPS"
-}
-
-# -----------------------------------------------------------------------------
-# Configuración de Observabilidad - Completa para producción
-# -----------------------------------------------------------------------------
-alarm_email              = "prod-operations@empresa.com"
-log_retention_days      = 90
-enable_vpc_flow_logs    = true
-enable_cloudwatch_logs  = true
-enable_detailed_monitoring = true
-enable_metrics          = true
-
-# Alarmas específicas para el sistema de pagos
-alarm_thresholds = {
-  cpu_utilization    = 75
-  memory_utilization = 80
-  disk_utilization   = 85
-  network_throughput = 1000000000
-  rds_cpu            = 70
-  rds_connections    = 80
-  lambda_errors      = 1
-  lambda_throttles   = 5
-  alb_target_response_time = 1000
-  alb_5xx_errors      = 10
-}
-
-# -----------------------------------------------------------------------------
-# Configuración de Alta Disponibilidad y Recuperación ante Desastres
-# -----------------------------------------------------------------------------
-enable_deletion_protection = true
-backup_retention_days   = 30
-rto_minutes             = 15
-rpo_minutes             = 5
-
-# Multi-Region para recuperación ante desastres
-enable_cross_region_backup = true
-backup_replication_region = "us-west-2"
-replication_retention_days = 90
-
-# DNS y Routing
-enable_route53_health_checks = true
-health_check_interval     = 30
-failover_threshold        = 3
-
-
-// === ARCHIVO: diagram/red_pagos.drawio ===
-<mxfile host="app.diagrams.net" modified="2024-01-15T10:00:00.000Z" agent="CloudOps-Terraform" version="21.0.0">
-  <diagram name="Topologia Red Segura Pagos" id="red-segura-pagos">
-    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="900" math="0" shadow="0">
-      <root>
-        <mxCell id="0" />
-        <mxCell id="1" parent="0" />
-        <!-- Titulo del diagrama -->
-        <mxCell id="title" value="Topologia de Red Segura - Entorno de Pagos" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=20;fontStyle=1;fontColor=#1F2937;" vertex="1" parent="1">
-          <mxGeometry x="400" y="20" width="400" height="40" as="geometry" />
-        </mxCell>
-        <!-- Metadatos del diagrama -->
-        <mxCell id="metadata" value="Throughput: 10,000 TPS | SLA: 99.9% | Entorno: Produccion" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=12;fontStyle=2;fontColor=#6B7280;" vertex="1" parent="1">
-          <mxGeometry x="350" y="60" width="500" height="20" as="geometry" />
-        </mxCell>
-        <!-- VPC Principal -->
-        <mxCell id="vpc" value="VPC (10.0.0.0/16)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E5E7EB;strokeColor=#374151;strokeWidth=2;fontSize=14;fontStyle=1;" vertex="1" parent="1">
-          <mxGeometry x="80" y="100" width="1040" height="780" as="geometry" />
-        </mxCell>
-        <!-- Zona de Subredes Publicas -->
-        <mxCell id="public-zone" value="ZONA PUBLICA (Internet-facing)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=2;fontSize=12;fontStyle=1;fontColor=#1E40AF;" vertex="1" parent="1">
-          <mxGeometry x="100" y="120" width="500" height="360" as="geometry" />
-        </mxCell>
-        <!-- Subred Publica - Monitoreo -->
-        <mxCell id="subnet-publica-monitoreo" value="Subred Publica - Monitoreo&#xa;10.0.1.0/24&#xa;&#xa;Servicios:&#xa;- CloudWatch Agent&#xa;- Prometheus/Grafana&#xa;- Fluentd Collector" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#BFDBFE;strokeColor=#3B82F6;strokeWidth=1;fontSize=11;" vertex="1" parent="1">
-          <mxGeometry x="120" y="150" width="220" height="150" as="geometry" />
-        </mxCell>
-        <!-- Subred Publica - Auditoria -->
-        <mxCell id="subnet-publica-auditoria" value="Subred Publica - Auditoria&#xa;10.0.2.0/24&#xa;&#xa;Servicios:&#xa;- AWS CloudTrail&#xa;- VPC Flow Logs&#xa;- Config Rules" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#BFDBFE;strokeColor=#3B82F6;strokeWidth=1;fontSize=11;" vertex="1" parent="1">
-          <mxGeometry x="360" y="150" width="220" height="150" as="geometry" />
-        </mxCell>
-        <!-- ALB en Subred Publica -->
-        <mxCell id="alb" value="Application Load Balancer&#xa;---&#xa;TLS Termination&#xa;WAF Integration&#xa;DDoS Protection" style="shape=mxgraph.aws3.load_balancer;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#D97706;strokeWidth=2;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="250" y="340" width="140" height="100" as="geometry" />
-        </mxCell>
-        <!-- Internet Gateway -->
-        <mxCell id="igw" value="Internet Gateway" style="shape=mxgraph.aws3.internet_gateway;whiteSpace=wrap;html=1;fillColor=#FECACA;strokeColor=#DC2626;strokeWidth=2;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="520" y="340" width="60" height="60" as="geometry" />
-        </mxCell>
-        <!-- Zona de Subredes Privadas -->
-        <mxCell id="private-zone" value="ZONA PRIVADA (Internal)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D1FAE5;strokeColor=#059669;strokeWidth=2;fontSize=12;fontStyle=1;fontColor=#065F46;" vertex="1" parent="1">
-          <mxGeometry x="620" y="120" width="480" height="360" as="geometry" />
-        </mxCell>
-        <!-- Subred Privada - Pagos -->
-        <mxCell id="subnet-privada-pagos" value="Subred Privada - Pagos&#xa;10.0.10.0/24&#xa;&#xa;Servicios:&#xa;- API Gateway Pagos&#xa;- Lambda Procesamiento&#xa;- DynamoDB Transacciones" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#A7F3D0;strokeColor=#10B981;strokeWidth=1;fontSize=11;" vertex="1" parent="1">
-          <mxGeometry x="640" y="150" width="220" height="150" as="geometry" />
-        </mxCell>
-        <!-- Subred Privada - Servicios Internos -->
-        <mxCell id="subnet-privada-servicios" value="Subred Privada - Servicios&#xa;10.0.11.0/24&#xa;&#xa;Servicios:&#xa;- Motor Antifraude&#xa;- Buró de Riesgos&#xa;- Liquidacion" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#A7F3D0;strokeColor=#10B981;strokeWidth=1;fontSize=11;" vertex="1" parent="1">
-          <mxGeometry x="880" y="150" width="200" height="150" as="geometry" />
-        </mxCell>
-        <!-- RDS en Subred Privada -->
-        <mxCell id="rds" value="Amazon RDS&#xa;PostgreSQL&#xa;---&#xa;Multi-AZ&#xa;Encrypted (KMS)&#xa;Read Replicas" style="shape=mxgraph.aws3.rds;whiteSpace=wrap;html=1;fillColor=#E0E7FF;strokeColor=#4F46E5;strokeWidth=2;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="780" y="340" width="120" height="100" as="geometry" />
-        </mxCell>
-        <!-- NAT Gateway -->
-        <mxCell id="nat" value="NAT Gateway&#xa;(Alta Disponibilidad)" style="shape=mxgraph.aws3.nat_gateway;whiteSpace=wrap;html=1;fillColor=#FDE68A;strokeColor=#CA8A04;strokeWidth=2;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="640" y="340" width="80" height="80" as="geometry" />
-        </mxCell>
-        <!-- Route Tables -->
-        <mxCell id="rt-publica" value="Route Table Publica&#xa;----------------&#xa;0.0.0.0/0 -> IGW&#xa;10.0.0.0/16 -> Local" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#6B7280;fontSize=9;" vertex="1" parent="1">
-          <mxGeometry x="120" y="500" width="160" height="80" as="geometry" />
-        </mxCell>
-        <mxCell id="rt-privada" value="Route Table Privada&#xa;----------------&#xa;0.0.0.0/0 -> NAT&#xa;10.0.0.0/16 -> Local" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#6B7280;fontSize=9;" vertex="1" parent="1">
-          <mxGeometry x="300" y="500" width="160" height="80" as="geometry" />
-        </mxCell>
-        <!-- Security Groups -->
-        <mxCell id="sg-alb" value="Security Group: ALB&#xa;--------------------&#xa;Inbound:&#xa;- 443 (HTTPS) from 0.0.0.0/0&#xa;- 80 (HTTP) redirect to 443&#xa;&#xa;Outbound:&#xa;- 443 to Private Subnets" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FEE2E2;strokeColor=#EF4444;fontSize=9;" vertex="1" parent="1">
-          <mxGeometry x="640" y="500" width="180" height="100" as="geometry" />
-        </mxCell>
-        <mxCell id="sg-lambda" value="Security Group: Lambda&#xa;--------------------&#xa;Inbound:&#xa;- 443 from ALB SG&#xa;&#xa;Outbound:&#xa;- 443 to RDS&#xa;- 443 to DynamoDB&#xa;- 443 to External APIs" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FEE2E2;strokeColor=#EF4444;fontSize=9;" vertex="1" parent="1">
-          <mxGeometry x="840" y="500" width="180" height="100" as="geometry" />
-        </mxCell>
-        <mxCell id="sg-rds" value="Security Group: RDS&#xa;--------------------&#xa;Inbound:&#xa;- 5432 from Lambda SG&#xa;&#xa;Outbound:&#xa;None (Database)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FEE2E2;strokeColor=#EF4444;fontSize=9;" vertex="1" parent="1">
-          <mxGeometry x="1040" y="500" width="160" height="100" as="geometry" />
-        </mxCell>
-        <!-- Actores del Sistema de Pagos -->
-        <mxCell id="actores" value="ACTORES DEL SISTEMA" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#374151;strokeWidth=2;fontSize=12;fontStyle=1;" vertex="1" parent="1">
-          <mxGeometry x="80" y="620" width="1040" height="240" as="geometry" />
-        </mxCell>
-        <!-- Originador de Pagos -->
-        <mxCell id="originador" value="Originador de Pagos&#xa;----------------&#xa;Entidad que inicia&#xa;las transacciones&#xa;&#xa;Comunicacion: HTTPS/TLS&#xa;Autenticacion: mTLS" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#E0E7FF;strokeColor=#4338CA;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="100" y="650" width="160" height="120" as="geometry" />
-        </mxCell>
-        <!-- Motor Antifraude -->
-        <mxCell id="antifraude" value="Motor Antifraude&#xa;----------------&#xa;Analiza transacciones&#xa;en tiempo real&#xa;&#xa;Ubicacion: Private Subnet&#xa;Modelo: ML/Deep Learning" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#E0E7FF;strokeColor=#4338CA;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="280" y="650" width="160" height="120" as="geometry" />
-        </mxCell>
-        <!-- Buró de Riesgos -->
-        <mxCell id="buro" value="Buro de Riesgos&#xa;----------------&#xa;Consulta historico&#xa;crediticio&#xa;&#xa;Ubicacion: Private Subnet&#xa;Integracion: API REST" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#E0E7FF;strokeColor=#4338CA;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="460" y="650" width="160" height="120" as="geometry" />
-        </mxCell>
-        <!-- Sistema de Liquidacion -->
-        <mxCell id="liquidacion" value="Sistema de Liquidacion&#xa;----------------&#xa;Procesa compensacion&#xa;entre entidades&#xa;&#xa;Ubicacion: Private Subnet&#xa;Scheduler: Cron/EventBridge" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#E0E7FF;strokeColor=#4338CA;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="640" y="650" width="160" height="120" as="geometry" />
-        </mxCell>
-        <!-- Flujo de Datos -->
-        <mxCell id="flujo" value="FLUJO DE DATOS&#xa;----------------&#xa;1. Originador -> ALB (443)&#xa;2. ALB -> Lambda (HTTPS)&#xa;3. Lambda -> Antifraude&#xa;4. Lambda -> Buró Riesgos&#xa;5. Lambda -> RDS (5432)&#xa;6. Lambda -> Liquidacion&#xa;7. Respuesta -> ALB -> Originador" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#D97706;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="820" y="650" width="200" height="140" as="geometry" />
-        </mxCell>
-        <!-- KMS - Cifrado -->
-        <mxCell id="kms" value="AWS KMS&#xa;--------&#xa;Cifrado en&#xa;reposo:&#xa;- RDS&#xa;- DynamoDB&#xa;- S3 Buckets" style="shape=mxgraph.aws3.key_management_service;whiteSpace=wrap;html=1;fillColor=#FCE7F3;strokeColor=#DB2777;strokeWidth=2;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="1040" y="340" width="60" height="60" as="geometry" />
-        </mxCell>
-        <!-- Conexiones - ALB a Lambda -->
-        <mxCell id="conn-alb-lambda" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#6B7280;strokeWidth=2;dashed=1;" edge="1" parent="1" source="alb" target="subnet-privada-pagos">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <!-- Conexion Internet a IGW -->
-        <mxCell id="conn-internet-igw" value="Internet" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#DC2626;strokeWidth=2;" edge="1" parent="1">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="550" y="250" />
-              <mxPoint x="550" y="370" />
-            </Array>
-          </mxGeometry>
-        </mxCell>
-        <!-- IGW a ALB -->
-        <mxCell id="conn-igw-alb" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#D97706;strokeWidth=2;" edge="1" parent="1" source="igw" target="alb">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <!-- Lambda a RDS -->
-        <mxCell id="conn-lambda-rds" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#4F46E5;strokeWidth=2;dashed=1;" edge="1" parent="1" source="subnet-privada-pagos" target="rds">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <!-- NAT Gateway a Internet -->
-        <mxCell id="conn-nat-igw" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#CA8A04;strokeWidth=2;" edge="1" parent="1" source="nat" target="igw">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="680" y="370" />
-            </Array>
-          </mxGeometry>
-        </mxCell>
-        <!-- Notas de Seguridad -->
-        <mxCell id="notas-seguridad" value="MEDIDAS DE SEGURIDAD IMPLEMENTADAS&#xa;--------------------------------------------&#xa;- Cifrado en reposo con KMS (AES-256)&#xa;- Cifrado en transito (TLS 1.3)&#xa;- Principle of Least Privilege en SG e IAM&#xa;- Segmentacion por subredes (Public/Private)&#xa;- NAT Gateway para salida controlada&#xa;- WAF en ALB para proteccion OWASP&#xa;- CloudTrail para auditoria&#xa;- VPC Flow Logs para monitoreo de red&#xa;- Multi-AZ para alta disponibilidad" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FEF2F2;strokeColor=#B91C1C;fontSize=10;align=left;spacingLeft=10;" vertex="1" parent="1">
-          <mxGeometry x="80" y="870" width="480" height="120" as="geometry" />
-        </mxCell>
-        <!-- Notas de Disponibilidad -->
-        <mxCell id="notas-disponibilidad" value="ALTA DISPONIBILIDAD Y RTO/RPO&#xa;--------------------------------------------&#xa;- RDS: Multi-AZ con failover automatico&#xa;- Lambda: Ejecucion en multiples AZs&#xa;- ALB: Balanceo cross-zone&#xa;- NAT Gateway: Alta disponibilidad (1 por AZ)&#xa;- RTO: < 5 minutos&#xa;- RPO: < 1 minuto (replicacion sincrona)&#xa;- SLA: 99.9% (multi-AZ)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ECFDF5;strokeColor=#047857;fontSize=10;align=left;spacingLeft=10;" vertex="1" parent="1">
-          <mxGeometry x="580" y="870" width="400" height="120" as="geometry" />
-        </mxCell>
-        <!-- Cost Optimization -->
-        <mxCell id="cost-optimization" value="OPTIMIZACION DE COSTOS&#xa;--------------------------------&#xa;- Etiquetas obligatorias:&#xa;  * Name&#xa;  * Environment&#xa;  * CostCenter&#xa;  * Project&#xa;- Reserved Instances para RDS&#xa;- Lambda provisioned concurrency&#xa;- S3 lifecycle policies&#xa;- CloudWatch dashboards&#xa;  centralizados" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFBEB;strokeColor=#B45309;fontSize=10;align=left;spacingLeft=10;" vertex="1" parent="1">
-          <mxGeometry x="1000" y="870" width="200" height="120" as="geometry" />
-        </mxCell>
-      </root>
-    </mxGraphModel>
-  </diagram>
-</mxfile>
 
 // === ARCHIVO: variables.tf ===
-variable "aws_region" {
-  description = "Región primaria de AWS donde se desplegará la infraestructura"
-  type        = string
-}
+# Declaración de variables globales del proyecto de infraestructura
+# Estas variables definen la configuración base que se aplica a todos los módulos
+# Los valores se proporcionan a través de archivos terraform.tfvars por ambiente
 
-variable "secondary_region" {
-  description = "Región secundaria de AWS para redundancia geográfica"
+variable "aws_region" {
+  description = "Región de AWS donde se desplegará la infraestructura"
   type        = string
 }
 
 variable "environment" {
-  description = "Entorno de despliegue (dev, qa, prod)"
+  description = "Ambiente de despliegue (dev, qa, prod)"
   type        = string
   validation {
     condition     = contains(["dev", "qa", "prod"], var.environment)
-    error_message = "El entorno debe ser uno de: dev, qa, prod"
+    error_message = "El ambiente debe ser uno de: dev, qa, prod"
   }
 }
 
-variable "cost_center" {
-  description = "Centro de costos para etiquetado y optimización de gastos"
-  type        = string
-}
-
 variable "project_name" {
-  description = "Nombre del proyecto para nomenclatura de recursos"
-  type        = string
-}
-
-variable "account_id" {
-  description = "ID de la cuenta de AWS"
+  description = "Nombre del proyecto para identificación de recursos"
   type        = string
 }
 
 variable "vpc_cidr" {
-  description = "Bloque CIDR principal para la VPC"
+  description = "CIDR block principal para la VPC"
   type        = string
   validation {
     condition     = can(cidrhost(var.vpc_cidr, 0))
-    error_message = "El CIDR de la VPC debe ser una dirección de red válida"
+    error_message = "Debe ser un CIDR válido (ej. 10.0.0.0/16)"
   }
 }
 
 variable "availability_zones" {
-  description = "Zonas de disponibilidad para la región primaria"
-  type        = list(string)
-}
-
-variable "secondary_availability_zones" {
-  description = "Zonas de disponibilidad para la región secundaria"
+  description = "Lista de AZs a utilizar en el entorno"
   type        = list(string)
 }
 
 variable "public_subnet_cidrs" {
-  description = "Bloques CIDR para subredes públicas"
+  description = "CIDRs para subredes públicas"
   type        = list(string)
 }
 
-variable "private_subnet_cidrs_pagos" {
-  description = "Bloques CIDR para subredes privadas del dominio de pagos"
+variable "private_subnet_cidrs" {
+  description = "CIDRs para subredes privadas (aplicación)"
   type        = list(string)
 }
 
-variable "private_subnet_cidrs_monitoreo" {
-  description = "Bloques CIDR para subredes privadas de monitoreo"
+variable "database_subnet_cidrs" {
+  description = "CIDRs para subredes de base de datos"
   type        = list(string)
 }
 
-variable "private_subnet_cidrs_auditoria" {
-  description = "Bloques CIDR para subredes privadas de auditoría"
-  type        = list(string)
+variable "common_tags" {
+  description = "Tags comunes aplicados a todos los recursos"
+  type        = map(string)
+  default     = {}
 }
 
-variable "subnet_public_payments_cidr" {
-  description = "CIDR para subred pública de pagos en AZ1"
-  type        = string
+variable "enable_nat_gateway" {
+  description = "Habilitar NAT Gateway para salida a internet desde subredes privadas"
+  type        = bool
+  default     = true
 }
 
-variable "subnet_public_payments_cidr_az2" {
-  description = "CIDR para subred pública de pagos en AZ2"
-  type        = string
-}
-
-variable "subnet_public_monitoring_cidr" {
-  description = "CIDR para subred pública de monitoreo en AZ1"
-  type        = string
-}
-
-variable "subnet_public_monitoring_cidr_az2" {
-  description = "CIDR para subred pública de monitoreo en AZ2"
-  type        = string
-}
-
-variable "subnet_private_payments_cidr" {
-  description = "CIDR para subred privada de pagos en AZ1"
-  type        = string
-}
-
-variable "subnet_private_payments_cidr_az2" {
-  description = "CIDR para subred privada de pagos en AZ2"
-  type        = string
-}
-
-variable "subnet_private_database_cidr" {
-  description = "CIDR para subred privada de base de datos en AZ1"
-  type        = string
-}
-
-variable "subnet_private_database_cidr_az2" {
-  description = "CIDR para subred privada de base de datos en AZ2"
-  type        = string
-}
-
-variable "subnet_private_audit_cidr" {
-  description = "CIDR para subred privada de auditoría en AZ1"
-  type        = string
-}
-
-variable "subnet_private_audit_cidr_az2" {
-  description = "CIDR para subred privada de auditoría en AZ2"
-  type        = string
-}
-
-variable "nat_gateway_count" {
-  description = "Cantidad de NAT Gateways a desplegar (1 por AZ o 1 único)"
-  type        = number
-  validation {
-    condition     = var.nat_gateway_count >= 1 && var.nat_gateway_count <= 3
-    error_message = "La cantidad de NAT Gateways debe estar entre 1 y 3"
-  }
+variable "single_nat_gateway" {
+  description = "Usar una única NAT Gateway para todas las subredes privadas (optimización de costos)"
+  type        = bool
+  default     = false
 }
 
 variable "enable_vpn_gateway" {
-  description = "Habilitar VPN Gateway para acceso seguro a la VPC"
+  description = "Habilitar VPN Gateway para conectividad híbrida"
   type        = bool
   default     = false
+}
+
+variable "enable_dx_gateway" {
+  description = "Habilitar Direct Connect Gateway para conectividad dedicada"
+  type        = bool
+  default     = false
+}
+
+variable "flow_log_destination_type" {
+  description = "Tipo de destino para VPC Flow Logs (cloud-watch-logs, s3, kinesis-data-firehose)"
+  type        = string
+  default     = "cloud-watch-logs"
+}
+
+variable "flow_log_retention_days" {
+  description = "Días de retención para logs de flujo de VPC"
+  type        = number
+  default     = 90
 }
 
 variable "enable_transit_gateway" {
@@ -4132,28 +3694,13 @@ variable "enable_transit_gateway" {
 }
 
 variable "allowed_cidr_blocks" {
-  description = "Bloques CIDR autorizados para acceso a servicios públicos"
+  description = "Bloques CIDR permitidos para acceso a recursos públicos"
   type        = list(string)
-}
-
-variable "enable_flow_logs" {
-  description = "Habilitar VPC Flow Logs para observabilidad del tráfico"
-  type        = bool
-  default     = true
-}
-
-variable "flow_log_destination_type" {
-  description = "Tipo de destino para VPC Flow Logs (s3, cloud-watch-logs)"
-  type        = string
-  default     = "s3"
-  validation {
-    condition     = contains(["s3", "cloud-watch-logs"], var.flow_log_destination_type)
-    error_message = "El tipo de destino debe ser s3 o cloud-watch-logs"
-  }
+  default     = []
 }
 
 variable "enable_dns_hostnames" {
-  description = "Habilitar nombres de host DNS en la VPC"
+  description = "Habilitar DNS hostnames en la VPC"
   type        = bool
   default     = true
 }
@@ -4164,485 +3711,1704 @@ variable "enable_dns_support" {
   default     = true
 }
 
-variable "tags" {
-  description = "Etiquetas adicionales para todos los recursos"
-  type        = map(string)
-  default     = {}
-}
-
-variable "s3_bucket_prefix" {
-  description = "Prefijo para nombres de buckets S3"
+variable "backend_bucket" {
+  description = "Nombre del bucket S3 para almacenar el estado de Terraform"
   type        = string
 }
 
-variable "rds_instance_class" {
-  description = "Clase de instancia RDS para la base de datos de pagos"
+variable "backend_dynamodb_table" {
+  description = "Nombre de la tabla DynamoDB para lock del estado"
   type        = string
 }
 
-variable "rds_allocated_storage" {
-  description = "Almacenamiento allocated para RDS en GB"
+variable "nat_gateway_elastic_ips" {
+  description = "Cantidad de Elastic IPs para NAT Gateways"
   type        = number
-}
-
-variable "rds_multi_az" {
-  description = "Habilitar despliegue Multi-AZ para RDS"
-  type        = bool
-  default     = true
-}
-
-variable "lambda_runtime" {
-  description = "Runtime para funciones Lambda"
-  type        = string
-  default     = "python3.11"
-}
-
-variable "lambda_memory_size" {
-  description = "Memoria en MB para funciones Lambda"
-  type        = number
-  default     = 256
-}
-
-variable "lambda_timeout" {
-  description = "Timeout en segundos para funciones Lambda"
-  type        = number
-  default     = 30
-}
-
-variable "alb_timeout" {
-  description = "Timeout de respuesta del ALB en segundos"
-  type        = number
-  default     = 60
-}
-
-variable "alb_deletion_protection" {
-  description = "Habilitar protección contra eliminación del ALB"
-  type        = bool
-  default     = true
-}
-
-variable "kms_key_administrators" {
-  description = "ARNs de usuarios que pueden administrar claves KMS"
-  type        = list(string)
-}
-
-variable "kms_key_users" {
-  description = "ARNs de usuarios que pueden usar claves KMS"
-  type        = list(string)
-}
-
-variable "eks_cluster_endpoint" {
-  description = "Endpoint del cluster EKS"
-  type        = string
-  default     = ""
-}
-
-variable "eks_cluster_ca_cert" {
-  description = "Certificado CA del cluster EKS (base64)"
-  type        = string
-  default     = ""
-}
-
-variable "eks_cluster_token" {
-  description = "Token de acceso al cluster EKS"
-  type        = string
-  default     = ""
-  sensitive   = true
-}
-
-variable "enable_waf" {
-  description = "Habilitar AWS WAF para protección de aplicaciones"
-  type        = bool
-  default     = false
-}
-
-variable "cloudwatch_log_retention_days" {
-  description = "Días de retención para logs de CloudWatch"
-  type        = number
-  default     = 90
-  validation {
-    condition     = var.cloudwatch_log_retention_days >= 1 && var.cloudwatch_log_retention_days <= 365
-    error_message = "Los días de retención deben estar entre 1 y 365"
-  }
+  default     = 0
 }
 
 variable "enable_guardduty" {
-  description = "Habilitar Amazon GuardDuty para detección de amenazas"
+  description = "Habilitar GuardDuty para detección de amenazas"
   type        = bool
   default     = false
 }
 
-variable "rto_minutes" {
-  description = "Recovery Time Objective en minutos"
-  type        = number
-  default     = 60
+variable "enable_security_hub" {
+  description = "Habilitar Security Hub para consolidación de hallazgos"
+  type        = bool
+  default     = false
 }
 
-variable "rpo_minutes" {
-  description = "Recovery Point Objective en minutos"
+variable "enable_config" {
+  description = "Habilitar AWS Config para auditoría de recursos"
+  type        = bool
+  default     = false
+}
+
+variable "enable_cloudtrail" {
+  description = "Habilitar CloudTrail para auditoría de eventos"
+  type        = bool
+  default     = true
+}
+
+variable "cloudtrail_bucket_name" {
+  description = "Nombre del bucket S3 para logs de CloudTrail"
+  type        = string
+  default     = ""
+}
+
+variable "kms_administrator_arns" {
+  description = "ARNs de usuarios que pueden administrar claves KMS"
+  type        = list(string)
+  default     = []
+}
+
+variable "kms_user_arns" {
+  description = "ARNs de usuarios que pueden usar claves KMS"
+  type        = list(string)
+  default     = []
+}
+
+variable "instance_type" {
+  description = "Tipo de instancia EC2 para los servidores de aplicación"
+  type        = string
+  default     = "t3.medium"
+}
+
+variable "instance_tenancy" {
+  description = "Tenancy de las instancias: default o dedicated"
+  type        = string
+  default     = "default"
+}
+
+variable "ssh_key_name" {
+  description = "Nombre del par de claves SSH para acceso a instancias"
+  type        = string
+  default     = ""
+}
+
+variable "asg_min_size" {
+  description = "Número mínimo de instancias en el Auto Scaling Group"
   type        = number
-  default     = 15
+  default     = 2
+}
+
+variable "asg_max_size" {
+  description = "Número máximo de instancias en el Auto Scaling Group"
+  type        = number
+  default     = 10
+}
+
+variable "asg_desired_capacity" {
+  description = "Número deseado de instancias en el Auto Scaling Group"
+  type        = number
+  default     = 3
+}
+
+variable "elb_access_logs_bucket" {
+  description = "Bucket S3 para logs de acceso del ALB"
+  type        = string
+  default     = ""
+}
+
+variable "certificate_arn" {
+  description = "ARN del certificado ACM para HTTPS"
+  type        = string
+  default     = ""
+}
+
+variable "ebs_volume_size" {
+  description = "Tamaño del volumen EBS en GB"
+  type        = number
+  default     = 100
+}
+
+variable "admin_cidr_blocks" {
+  description = "Bloques CIDR para acceso administrativo"
+  type        = list(string)
+  default     = []
 }
 
 // === ARCHIVO: modules/network/variables.tf ===
-variable "vpc_cidr" {
-  description = "Bloque CIDR de la VPC"
+# Variables específicas del módulo de red (VPC, subredes, tablas de rutas, NAT Gateway)
+# Este módulo encapsula toda la configuración relacionada con la topología de red
+# incluyendo segmentación entre subredes públicas, privadas y de base de datos
+
+variable "vpc_name" {
+  description = "Nombre identificador para la VPC"
   type        = string
 }
 
+variable "vpc_cidr" {
+  description = "CIDR block principal de la VPC"
+  type        = string
+}
+
+variable "availability_zones" {
+  description = "Zonas de disponibilidad para las subredes"
+  type        = list(string)
+}
+
+variable "public_subnet_cidrs" {
+  description = "Bloques CIDR para subredes públicas (con acceso a internet)"
+  type        = list(string)
+}
+
+variable "private_subnet_cidrs" {
+  description = "Bloques CIDR para subredes privadas (aplicaciones, sin acceso directo a internet)"
+  type        = list(string)
+}
+
+variable "database_subnet_cidrs" {
+  description = "Bloques CIDR para subredes de base de datos (aislamiento máximo)"
+  type        = list(string)
+}
+
+variable "enable_nat_gateway" {
+  description = "Determina si se crean NAT Gateways para permitir salida a internet desde subredes privadas"
+  type        = bool
+}
+
+variable "single_nat_gateway" {
+  description = "Si es true, se crea una única NAT Gateway en lugar de una por AZ (ahorra costos)"
+  type        = bool
+}
+
+variable "enable_vpn_gateway" {
+  description = "Habilita el Virtual Private Gateway para conexiones VPN site-to-site"
+  type        = bool
+  default     = false
+}
+
+variable "enable_dns_hostnames" {
+  description = "Habilita la resolución de DNS hostnames dentro de la VPC"
+  type        = bool
+  default     = true
+}
+
+variable "enable_dns_support" {
+  description = "Habilita el soporte de DNS dentro de la VPC"
+  type        = bool
+  default     = true
+}
+
+variable "enable_transit_gateway" {
+  description = "Configura attachment al Transit Gateway para conectividad entre VPCs"
+  type        = bool
+  default     = false
+}
+
+variable "transit_gateway_id" {
+  description = "ID del Transit Gateway al cual conectar esta VPC"
+  type        = string
+  default     = ""
+}
+
+variable "map_public_ip_on_launch" {
+  description = "Asignar IP pública automáticamente a instancias en subredes públicas"
+  type        = bool
+  default     = true
+}
+
 variable "environment" {
-  description = "Entorno de despliegue"
+  description = "Ambiente de despliegue para etiquetado"
   type        = string
 }
 
 variable "project_name" {
-  description = "Nombre del proyecto"
+  description = "Nombre del proyecto para etiquetado"
   type        = string
+}
+
+variable "common_tags" {
+  description = "Tags comunes heredados del proyecto"
+  type        = map(string)
+}
+
+variable "nat_gateway_elastic_ips" {
+  description = "Cantidad de Elastic IPs para NAT Gateways (debe coincidir con número de AZs si single_nat_gateway es false)"
+  type        = number
+  default     = 0
+}
+
+variable "enable_flow_log" {
+  description = "Habilitar VPC Flow Logs para monitoreo de tráfico"
+  type        = bool
+  default     = true
+}
+
+variable "flow_log_destination_type" {
+  description = "Tipo de destino para flow logs: cloud-watch-logs, s3, o kinesis-data-firehose"
+  type        = string
+  default     = "cloud-watch-logs"
+}
+
+variable "flow_log_cloudwatch_log_group_name" {
+  description = "Nombre del Log Group en CloudWatch para flow logs"
+  type        = string
+  default     = ""
+}
+
+variable "flow_log_cloudwatch_log_group_arn" {
+  description = "ARN del Log Group de CloudWatch existente para flow logs"
+  type        = string
+  default     = ""
+}
+
+variable "flow_log_iam_role_arn" {
+  description = "ARN del rol IAM para publicación de flow logs"
+  type        = string
+  default     = ""
+}
+
+variable "flow_log_traffic_type" {
+  description = "Tipo de tráfico a registrar: ACCEPT, REJECT, o ALL"
+  type        = string
+  default     = "ALL"
+}
+
+variable "flow_log_format" {
+  description = "Formato personalizado para VPC Flow Logs"
+  type        = string
+  default     = "${version} ${account-id} ${interface-id} ${srcaddr} ${dstaddr} ${srcport} ${dstport} ${protocol} ${packets} ${bytes} ${start} ${end} ${action} ${log-status}"
+}
+
+variable "enable_classiclink" {
+  description = "Habilitar ClassicLink para compatibilidad con EC2-Classic"
+  type        = bool
+  default     = false
+}
+
+variable "enable_ipv6" {
+  description = "Habilitar IPv6 en la VPC"
+  type        = bool
+  default     = false
+}
+
+// === ARCHIVO: modules/network/main.tf ===
+# Módulo de red: define la topología de VPC, subredes, gateways y tablas de rutas
+# Segmentación de red para entorno de pagos con alta disponibilidad
+
+# VPC principal del entorno de pagos
+resource "aws_vpc" "main" {
+  cidr_block           = var.vpc_cidr
+  enable_dns_hostnames = var.enable_dns_hostnames
+  enable_dns_support   = var.enable_dns_support
+  tags = {
+    Name        = "${var.project_name}-vpc-${var.environment}"
+    Environment = var.environment
+    Project     = var.project_name
+    ManagedBy   = "terraform"
+  }
+}
+
+# Internet Gateway para salida a internet desde subredes públicas
+resource "aws_internet_gateway" "main" {
+  vpc_id = aws_vpc.main.id
+  tags = {
+    Name        = "${var.project_name}-igw-${var.environment}"
+    Environment = var.environment
+    Project     = var.project_name
+  }
+}
+
+# Elastic IP para NAT Gateway en cada AZ
+resource "aws_eip" "nat_gateway_eip" {
+  count  = length(var.availability_zones)
+  domain = "vpc"
+  tags = {
+    Name        = "${var.project_name}-nat-eip-${var.availability_zones[count.index]}"
+    Environment = var.environment
+  }
+  depends_on = [aws_internet_gateway.main]
+}
+
+# NAT Gateways en cada zona de disponibilidad para salida a internet desde subredes privadas
+resource "aws_nat_gateway" "main" {
+  count         = length(var.availability_zones)
+  allocation_id = aws_eip.nat_gateway_eip[count.index].id
+  subnet_id     = aws_subnet.public[count.index].id
+  tags = {
+    Name        = "${var.project_name}-nat-${var.availability_zones[count.index]}"
+    Environment = var.environment
+    Project     = var.project_name
+  }
+  depends_on = [aws_internet_gateway.main]
+}
+
+# Subredes públicas para ALB y componentes que requieren acceso a internet
+resource "aws_subnet" "public" {
+  count                   = length(var.public_subnet_cidrs)
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = var.public_subnet_cidrs[count.index]
+  availability_zone       = var.availability_zones[count.index]
+  map_public_ip_on_launch = var.map_public_ip_on_launch
+  tags = {
+    Name        = "${var.project_name}-public-subnet-${var.availability_zones[count.index]}"
+    Type        = "public"
+    Environment = var.environment
+    Project     = var.project_name
+  }
+}
+
+# Subredes privadas para instancias de aplicación (gateway de pagos, liquidación, antifraude)
+resource "aws_subnet" "private" {
+  count             = length(var.private_subnet_cidrs)
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = var.private_subnet_cidrs[count.index]
+  availability_zone = var.availability_zones[count.index]
+  tags = {
+    Name        = "${var.project_name}-private-subnet-${var.availability_zones[count.index]}"
+    Type        = "private"
+    Environment = var.environment
+    Project     = var.project_name
+  }
+}
+
+# Subredes de base de datos en capa aislada
+resource "aws_subnet" "database" {
+  count             = length(var.database_subnet_cidrs)
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = var.database_subnet_cidrs[count.index]
+  availability_zone = var.availability_zones[count.index]
+  tags = {
+    Name        = "${var.project_name}-database-subnet-${var.availability_zones[count.index]}"
+    Type        = "database"
+    Environment = var.environment
+    Project     = var.project_name
+  }
+}
+
+# Grupo de subredes de base de datos para RDS Multi-AZ
+resource "aws_subnet_group" "database" {
+  name       = "${var.project_name}-db-subnet-group-${var.environment}"
+  subnet_ids = aws_subnet.database[*].id
+  tags = {
+    Name        = "${var.project_name}-db-subnet-group"
+    Environment = var.environment
+  }
+}
+
+# Tabla de rutas pública: tráfico directo a Internet Gateway
+resource "aws_route_table" "public" {
+  vpc_id = aws_vpc.main.id
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.main.id
+  }
+  tags = {
+    Name        = "${var.project_name}-public-rt-${var.environment}"
+    Type        = "public"
+    Environment = var.environment
+  }
+}
+
+# Tablas de rutas privadas: tráfico a través de NAT Gateway por AZ
+resource "aws_route_table" "private" {
+  count  = length(var.availability_zones)
+  vpc_id = aws_vpc.main.id
+  route {
+    cidr_block     = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.main[count.index].id
+  }
+  tags = {
+    Name        = "${var.project_name}-private-rt-${var.availability_zones[count.index]}"
+    Type        = "private"
+    Environment = var.environment
+  }
+}
+
+# Asociación de subredes públicas con tabla de rutas pública
+resource "aws_route_table_association" "public" {
+  count          = length(aws_subnet.public)
+  subnet_id      = aws_subnet.public[count.index].id
+  route_table_id = aws_route_table.public.id
+}
+
+# Asociación de subredes privadas con sus tablas de rutas por AZ
+resource "aws_route_table_association" "private" {
+  count          = length(aws_subnet.private)
+  subnet_id      = aws_subnet.private[count.index].id
+  route_table_id = aws_route_table.private[count.index].id
+}
+
+// === ARCHIVO: modules/network/outputs.tf ===
+# Outputs del módulo de red: exposición de IDs y ARNs para consumo por otros módulos
+
+output "vpc_id" {
+  description = "ID de la VPC principal"
+  value       = aws_vpc.main.id
+}
+
+output "vpc_cidr" {
+  description = "Bloque CIDR de la VPC"
+  value       = aws_vpc.main.cidr_block
+}
+
+output "vpc_arn" {
+  description = "ARN de la VPC principal"
+  value       = aws_vpc.main.arn
+}
+
+output "internet_gateway_id" {
+  description = "ID del Internet Gateway"
+  value       = aws_internet_gateway.main.id
+}
+
+output "igw_id" {
+  description = "ID del Internet Gateway (alias)"
+  value       = aws_internet_gateway.main.id
+}
+
+output "nat_gateway_ids" {
+  description = "IDs de los NAT Gateways por zona de disponibilidad"
+  value       = aws_nat_gateway.main[*].id
+}
+
+output "nat_gateway_elastic_ips" {
+  description = "Elastic IPs asignadas a los NAT Gateways"
+  value       = aws_eip.nat_gateway_eip[*].public_ip
+}
+
+output "public_subnet_ids" {
+  description = "IDs de las subredes públicas"
+  value       = aws_subnet.public[*].id
+}
+
+output "private_subnet_app_ids" {
+  description = "IDs de las subredes privadas de aplicación"
+  value       = aws_subnet.private[*].id
+}
+
+output "private_subnet_data_ids" {
+  description = "IDs de las subredes privadas de datos"
+  value       = aws_subnet.database[*].id
+}
+
+output "private_subnet_ids" {
+  description = "IDs de las subredes privadas"
+  value       = aws_subnet.private[*].id
+}
+
+output "database_subnet_ids" {
+  description = "IDs de las subredes de base de datos"
+  value       = aws_subnet.database[*].id
+}
+
+output "database_subnet_group_id" {
+  description = "ID del grupo de subredes de base de datos"
+  value       = aws_subnet_group.database.id
+}
+
+output "public_route_table_id" {
+  description = "ID de la tabla de rutas pública"
+  value       = aws_route_table.public.id
+}
+
+output "private_route_table_ids" {
+  description = "IDs de las tablas de rutas privadas por AZ"
+  value       = aws_route_table.private[*].id
+}
+
+output "public_subnet_cidrs" {
+  description = "Bloques CIDR de las subredes públicas"
+  value       = var.public_subnet_cidrs
+}
+
+output "private_subnet_cidrs" {
+  description = "Bloques CIDR de las subredes privadas"
+  value       = var.private_subnet_cidrs
+}
+
+output "database_subnet_cidrs" {
+  description = "Bloques CIDR de las subredes de base de datos"
+  value       = var.database_subnet_cidrs
+}
+
+output "availability_zones" {
+  description = "Zonas de disponibilidad configuradas"
+  value       = var.availability_zones
+}
+
+// === ARCHIVO: modules/security/variables.tf ===
+# Variables específicas del módulo de seguridad
+# Este módulo encapsula la configuración de IAM roles, políticas, security group
+# y otros recursos de seguridad necesarios para el entorno de pagos
+
+variable "environment" {
+  description = "Ambiente de despliegue (dev, qa, prod)"
+  type        = string
+}
+
+variable "project_name" {
+  description = "Nombre del proyecto para identificación de recursos"
+  type        = string
+}
+
+variable "vpc_id" {
+  description = "ID de la VPC donde se aplicarán los security groups"
+  type        = string
+}
+
+variable "vpc_cidr" {
+  description = "Bloque CIDR de la VPC"
+  type        = string
+  default     = ""
+}
+
+variable "public_subnet_ids" {
+  description = "IDs de subredes públicas"
+  type        = list(string)
+  default     = []
+}
+
+variable "private_subnet_ids" {
+  description = "IDs de subredes privadas"
+  type        = list(string)
+  default     = []
+}
+
+variable "allowed_cidr_blocks" {
+  description = "Bloques CIDR autorizados para acceso a recursos"
+  type        = list(string)
+  default     = []
+}
+
+variable "common_tags" {
+  description = "Tags comunes aplicados a todos los recursos de seguridad"
+  type        = map(string)
+}
+
+variable "enable_iam_roles" {
+  description = "Habilitar la creación de roles IAM para los componentes"
+  type        = bool
+  default     = true
+}
+
+variable "enable_security_groups" {
+  description = "Habilitar la creación de security groups"
+  type        = bool
+  default     = true
+}
+
+variable "create_payment_gateway_role" {
+  description = "Crear rol IAM específico para el gateway de pagos"
+  type        = bool
+  default     = true
+}
+
+variable "create_settlement_role" {
+  description = "Crear rol IAM específico para el sistema de liquidación"
+  type        = bool
+  default     = true
+}
+
+variable "create_fraud_engine_role" {
+  description = "Crear rol IAM específico para el motor antifraude"
+  type        = bool
+  default     = true
+}
+
+variable "payment_gateway_policy" {
+  description = "Política personalizada para el gateway de pagos (JSON)"
+  type        = string
+  default     = ""
+}
+
+variable "settlement_policy" {
+  description = "Política personalizada para el sistema de liquidación (JSON)"
+  type        = string
+  default     = ""
+}
+
+variable "fraud_engine_policy" {
+  description = "Política personalizada para el motor antifraude (JSON)"
+  type        = string
+  default     = ""
+}
+
+variable "security_group_rules" {
+  description = "Definición de reglas de security groups personalizada"
+  type = object({
+    http_port      = number
+    https_port     = number
+    mysql_port     = number
+    postgres_port  = number
+    redis_port     = number
+    rabbitmq_port  = number
+    internal_port  = number
+    monitoring_port = number
+  })
+  default = {
+    http_port       = 80
+    https_port      = 443
+    mysql_port      = 3306
+    postgres_port   = 5432
+    redis_port      = 6379
+    rabbitmq_port   = 5672
+    internal_port   = 8080
+    monitoring_port = 9090
+  }
+}
+
+variable "allowed_ingress_ports" {
+  description = "Puertos que permiten tráfico entrante desde fuentes externas"
+  type        = list(number)
+  default     = [443, 22]
+}
+
+variable "enable_cloudtrail" {
+  description = "Habilitar CloudTrail para auditoría de eventos"
+  type        = bool
+  default     = true
+}
+
+variable "enable_guardduty" {
+  description = "Habilitar GuardDuty para detección de amenazas"
+  type        = bool
+  default     = false
+}
+
+variable "enable_security_hub" {
+  description = "Habilitar Security Hub para consolidación de hallazgos"
+  type        = bool
+  default     = false
+}
+
+variable "kms_key_administrators" {
+  description = "ARNs de usuarios que pueden administrar la clave KMS"
+  type        = list(string)
+  default     = []
+}
+
+variable "kms_key_users" {
+  description = "ARNs de usuarios que pueden usar la clave KMS para cifrado/descifrado"
+  type        = list(string)
+  default     = []
+}
+
+variable "enable_secrets_manager" {
+  description = "Habilitar Secrets Manager para gestión de credenciales"
+  type        = bool
+  default     = true
+}
+
+variable "secrets_manager_secret_names" {
+  description = "Nombres de los secrets a crear en Secrets Manager"
+  type        = list(string)
+  default     = []
+}
+
+variable "enable_waf" {
+  description = "Habilitar WAF para protección de aplicaciones web"
+  type        = bool
+  default     = false
+}
+
+variable "waf_web_acl_rules" {
+  description = "Configuración de reglas de WAF Web ACL"
+  type        = any
+  default     = {}
+}
+
+variable "enable_deletion_protection" {
+  description = "Habilitar protección contra eliminación en recursos críticos"
+  type        = bool
+  default     = true
 }
 
 variable "region" {
   description = "Región de AWS"
   type        = string
+  default     = "us-east-1"
 }
 
-variable "availability_zones" {
-  description = "Lista de zonas de disponibilidad"
-  type        = list(string)
-}
-
-variable "cost_center" {
-  description = "Centro de costos para etiquetado"
-  type        = string
-}
-
-variable "common_tags" {
-  description = "Etiquetas comunes para todos los recursos"
-  type        = map(string)
-  default     = {}
-}
-
-variable "vpc_id" {
-  description = "ID de la VPC existente"
-  type        = string
-}
-
-variable "internet_gateway_id" {
-  description = "ID del Internet Gateway"
-  type        = string
-}
-
-variable "nat_gateway_id" {
-  description = "ID del NAT Gateway"
-  type        = string
-}
-
-variable "vpc_peering_connection_id" {
-  description = "ID de la conexión de VPC Peering"
+variable "account_id" {
+  description = "ID de cuenta de AWS"
   type        = string
   default     = ""
 }
 
-variable "onpremises_cidr" {
-  description = "Bloque CIDR de la red on-premises"
+variable "logs_bucket_name" {
+  description = "Nombre del bucket S3 para logs"
   type        = string
   default     = ""
 }
 
-variable "vpn_gateway_id" {
-  description = "ID del VPN Gateway"
+variable "bastion_ssh_cidr" {
+  description = "Bloque CIDR para acceso SSH al bastion"
   type        = string
-  default     = ""
+  default     = "10.0.0.0/16"
 }
 
-variable "s3_endpoint_id" {
-  description = "ID del endpoint de S3"
-  type        = string
-  default     = ""
+// === ARCHIVO: modules/security/main.tf ===
+# Módulo de seguridad: políticas IAM, grupos de seguridad y NACLs
+# Aplicación del principio de menor privilegio para entorno de pagos
+
+# Grupo de seguridad para ALB público: permite tráfico HTTP/HTTPS desde internet
+resource "aws_security_group" "alb" {
+  name        = "${var.project_name}-alb-sg-${var.environment}"
+  description = "Grupo de seguridad para Application Load Balancer público"
+  vpc_id      = var.vpc_id
+  tags = {
+    Name        = "${var.project_name}-alb-sg"
+    Environment = var.environment
+    Component   = "alb"
+  }
 }
 
-variable "dynamodb_endpoint_id" {
-  description = "ID del endpoint de DynamoDB"
-  type        = string
-  default     = ""
+# Grupo de seguridad para instancias de aplicación (gateway de pagos, liquidación, antifraude)
+resource "aws_security_group" "app" {
+  name        = "${var.project_name}-app-sg-${var.environment}"
+  description = "Grupo de seguridad para instancias de aplicación"
+  vpc_id      = var.vpc_id
+  tags = {
+    Name        = "${var.project_name}-app-sg"
+    Environment = var.environment
+    Component   = "application"
+  }
 }
 
-variable "public_subnet_ids" {
-  description = "Lista de IDs de subredes públicas"
-  type        = list(string)
+# Grupo de seguridad para base de datos RDS
+resource "aws_security_group" "database" {
+  name        = "${var.project_name}-db-sg-${var.environment}"
+  description = "Grupo de seguridad para base de datos"
+  vpc_id      = var.vpc_id
+  tags = {
+    Name        = "${var.project_name}-db-sg"
+    Environment = var.environment
+    Component   = "database"
+  }
 }
 
-variable "private_subnet_ids" {
-  description = "Lista de IDs de subredes privadas"
-  type        = list(string)
+# Grupo de seguridad para bastion host (acceso administrativo)
+resource "aws_security_group" "bastion" {
+  name        = "${var.project_name}-bastion-sg-${var.environment}"
+  description = "Grupo de seguridad para bastion host"
+  vpc_id      = var.vpc_id
+  tags = {
+    Name        = "${var.project_name}-bastion-sg"
+    Environment = var.environment
+    Component   = "bastion"
+  }
 }
 
-variable "pagos_db_subnet_ids" {
-  description = "Lista de IDs de subredes de base de datos de pagos"
-  type        = list(string)
+# Regla de entrada: HTTPS desde cualquier lugar para ALB
+resource "aws_vpc_security_group_ingress_rule" "alb_https" {
+  security_group_id = aws_security_group.alb.id
+  cidr_ipv4         = "0.0.0.0/0"
+  from_port         = 443
+  to_port           = 443
+  ip_protocol       = "tcp"
+  description       = "Permitir HTTPS desde internet"
 }
 
-variable "public_subnet_id" {
-  description = "ID de la subred pública donde se desplegará el NAT Gateway"
-  type        = string
+# Regla de entrada: HTTP desde cualquier lugar para ALB
+resource "aws_vpc_security_group_ingress_rule" "alb_http" {
+  security_group_id = aws_security_group.alb.id
+  cidr_ipv4         = "0.0.0.0/0"
+  from_port         = 80
+  to_port           = 80
+  ip_protocol       = "tcp"
+  description       = "Permitir HTTP desde internet"
 }
 
-// === ARCHIVO: modules/security/variables.tf ===
-variable "vpc_id" {
-  description = "ID de la VPC"
-  type        = string
+# Regla de entrada: solo desde ALB hacia app
+resource "aws_vpc_security_group_ingress_rule" "app_from_alb" {
+  security_group_id            = aws_security_group.app.id
+  referenced_security_group_id = aws_security_group.alb.id
+  from_port                    = 8443
+  to_port                      = 8443
+  ip_protocol                  = "tcp"
+  description                  = "Permitir tráfico del ALB"
 }
+
+# Regla de entrada: SSH desde bastion hacia app
+resource "aws_vpc_security_group_ingress_rule" "app_from_bastion" {
+  security_group_id            = aws_security_group.app.id
+  referenced_security_group_id = aws_security_group.bastion.id
+  from_port                    = 22
+  to_port                      = 22
+  ip_protocol                  = "tcp"
+  description                  = "Permitir SSH desde bastion"
+}
+
+# Regla de entrada: MySQL/PostgreSQL solo desde grupo de aplicación
+resource "aws_vpc_security_group_ingress_rule" "db_from_app" {
+  security_group_id            = aws_security_group.database.id
+  referenced_security_group_id = aws_security_group.app.id
+  from_port                    = 3306
+  to_port                      = 3306
+  ip_protocol                  = "tcp"
+  description                  = "Permitir MySQL desde aplicaciones"
+}
+
+# Regla de entrada: SSH solo desde IP corporativo
+resource "aws_vpc_security_group_ingress_rule" "bastion_ssh" {
+  security_group_id = aws_security_group.bastion.id
+  cidr_ipv4         = var.bastion_ssh_cidr
+  from_port         = 22
+  to_port           = 22
+  ip_protocol       = "tcp"
+  description       = "Permitir SSH desde IP corporativo"
+}
+
+# NACL para subredes públicas: permitir tráfico entrante/saliente básico
+resource "aws_network_acl" "public" {
+  vpc_id     = var.vpc_id
+  subnet_ids = var.public_subnet_ids
+  tags = {
+    Name        = "${var.project_name}-nacl-public"
+    Environment = var.environment
+  }
+}
+
+# Regla entrante NACL pública: HTTPS
+resource "aws_network_acl_rule" "public_https_in" {
+  network_acl_id = aws_network_acl.public.id
+  rule_number    = 100
+  egress         = false
+  protocol       = "tcp"
+  from_port      = 443
+  to_port        = 443
+  action         = "allow"
+  cidr_block     = "0.0.0.0/0"
+}
+
+# Regla entrante NACL pública: HTTP
+resource "aws_network_acl_rule" "public_http_in" {
+  network_acl_id = aws_network_acl.public.id
+  rule_number    = 110
+  egress         = false
+  protocol       = "tcp"
+  from_port      = 80
+  to_port        = 80
+  action         = "allow"
+  cidr_block     = "0.0.0.0/0"
+}
+
+# Regla saliente NACL pública: tráfico efímero
+resource "aws_network_acl_rule" "public_ephemeral_out" {
+  network_acl_id = aws_network_acl.public.id
+  rule_number    = 100
+  egress         = true
+  protocol       = "tcp"
+  from_port      = 1024
+  to_port        = 65535
+  action         = "allow"
+  cidr_block     = "0.0.0.0/0"
+}
+
+# NACL para subredes privadas: restringir tráfico
+resource "aws_network_acl" "private" {
+  vpc_id     = var.vpc_id
+  subnet_ids = var.private_subnet_ids
+  tags = {
+    Name        = "${var.project_name}-nacl-private"
+    Environment = var.environment
+  }
+}
+
+# Regla entrante NACL privada: permitir tráfico desde VPC
+resource "aws_network_acl_rule" "private_app_in" {
+  network_acl_id = aws_network_acl.private.id
+  rule_number    = 100
+  egress         = false
+  protocol       = "tcp"
+  from_port      = 0
+  to_port        = 65535
+  action         = "allow"
+  cidr_block     = var.vpc_cidr
+}
+
+# Regla saliente NACL privada: hacia internet vía NAT
+resource "aws_network_acl_rule" "private_nat_out" {
+  network_acl_id = aws_network_acl.private.id
+  rule_number    = 100
+  egress         = true
+  protocol       = "tcp"
+  from_port      = 443
+  to_port        = 443
+  action         = "allow"
+  cidr_block     = "0.0.0.0/0"
+}
+
+# Política IAM para rol de EC2 de aplicación con menor privilegio
+resource "aws_iam_role" "app_instance" {
+  name = "${var.project_name}-app-instance-role-${var.environment}"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = {
+        Service = "ec2.amazonaws.com"
+      }
+    }]
+  })
+  tags = {
+    Environment = var.environment
+  }
+}
+
+# Política IAM: acceso a CloudWatch Logs para aplicaciones
+resource "aws_iam_policy" "app_cloudwatch" {
+  name        = "${var.project_name}-cloudwatch-policy-${var.environment}"
+  description = "Política para escritura de logs en CloudWatch"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ]
+      Resource = "arn:aws:logs:${var.region}:${var.account_id}:log-group:/${var.project_name}/${var.environment}/*"
+    }]
+  })
+}
+
+# Adjuntar política CloudWatch al rol
+resource "aws_iam_role_policy_attachment" "app_cloudwatch_attach" {
+  role       = aws_iam_role.app_instance.name
+  policy_arn = aws_iam_policy.app_cloudwatch.arn
+}
+
+# Política IAM: acceso a S3 para almacenamiento de logs (solo bucket específico)
+resource "aws_iam_policy" "app_s3" {
+  name        = "${var.project_name}-s3-policy-${var.environment}"
+  description = "Política para acceso a S3 con menor privilegio"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "s3:PutObject",
+        "s3:GetObject"
+      ]
+      Resource = "arn:aws:s3:::${var.logs_bucket_name}/*"
+    }]
+  })
+}
+
+# Adjuntar política S3 al rol
+resource "aws_iam_role_policy_attachment" "app_s3_attach" {
+  role       = aws_iam_role.app_instance.name
+  policy_arn = aws_iam_policy.app_s3.arn
+}
+
+# Perfil de instancia EC2
+resource "aws_iam_instance_profile" "app" {
+  name = "${var.project_name}-app-instance-profile-${var.environment}"
+  role = aws_iam_role.app_instance.name
+  tags = {
+    Environment = var.environment
+  }
+}
+
+// === ARCHIVO: modules/security/outputs.tf ===
+# Outputs del módulo de seguridad
+
+output "elb_security_group_id" {
+  description = "ID del grupo de seguridad para el ALB"
+  value       = aws_security_group.alb.id
+}
+
+output "instance_security_group_id" {
+  description = "ID del grupo de seguridad para las instancias de aplicación"
+  value       = aws_security_group.app.id
+}
+
+output "rds_security_group_id" {
+  description = "ID del grupo de seguridad para la base de datos RDS"
+  value       = aws_security_group.database.id
+}
+
+output "internal_security_group_id" {
+  description = "ID del grupo de seguridad interno"
+  value       = aws_security_group.bastion.id
+}
+
+output "ec2_instance_role_arn" {
+  description = "ARN del rol IAM para instancias EC2"
+  value       = aws_iam_role.app_instance.arn
+}
+
+output "asg_service_role_arn" {
+  description = "ARN del rol IAM para el servicio Auto Scaling"
+  value       = aws_iam_role.app_instance.arn
+}
+
+output "security_kms_key_arn" {
+  description = "ARN de la clave KMS de seguridad"
+  value       = ""
+}
+
+output "ebs_kms_key_arn" {
+  description = "ARN de la clave KMS para EBS"
+  value       = ""
+}
+
+output "app_security_group_arn" {
+  description = "ARN del grupo de seguridad de aplicación"
+  value       = aws_security_group.app.arn
+}
+
+output "db_security_group_arn" {
+  description = "ARN del grupo de seguridad de base de datos"
+  value       = aws_security_group.database.arn
+}
+
+output "instance_profile_name" {
+  description = "Nombre del perfil de instancia EC2"
+  value       = aws_iam_instance_profile.app.name
+}
+
+// === ARCHIVO: modules/compute/variables.tf ===
+# Variables específicas del módulo de cómputo
+# Este módulo encapsula la configuración de instancias EC2, Auto Scaling Groups,
+# Application Load Balancers y otros recursos de procesamiento
 
 variable "environment" {
-  description = "Entorno de despliegue"
+  description = "Ambiente de despliegue (dev, qa, prod)"
   type        = string
 }
 
 variable "project_name" {
-  description = "Nombre del proyecto"
+  description = "Nombre del proyecto para identificación de recursos"
   type        = string
-}
-
-variable "cost_center" {
-  description = "Centro de costos"
-  type        = string
-}
-
-variable "aws_region" {
-  description = "Región de AWS"
-  type        = string
-}
-
-variable "account_id" {
-  description = "ID de la cuenta de AWS"
-  type        = string
-}
-
-variable "common_tags" {
-  description = "Etiquetas comunes"
-  type        = map(string)
-  default     = {}
-}
-
-variable "subnet_pagos_cidr" {
-  description = "CIDR de la subred de pagos"
-  type        = string
-}
-
-variable "subnet_rds_cidr" {
-  description = "CIDR de la subred de RDS"
-  type        = string
-}
-
-variable "subnet_monitoring_cidr" {
-  description = "CIDR de la subred de monitoreo"
-  type        = string
-}
-
-variable "subnet_antifraude_cidr" {
-  description = "CIDR de la subred de antifraude"
-  type        = string
-}
-
-variable "subnet_buro_cidr" {
-  description = "CIDR de la subred del buró de riesgos"
-  type        = string
-}
-
-variable "kms_key_id" {
-  description = "ID de la clave KMS"
-  type        = string
-}
-
-variable "fraud_detection_table" {
-  description = "Nombre de la tabla de detección de fraude"
-  type        = string
-}
-
-variable "settlement_table" {
-  description = "Nombre de la tabla de liquidación"
-  type        = string
-}
-
-variable "alb_logs_bucket" {
-  description = "Nombre del bucket de logs del ALB"
-  type        = string
-}
-
-// === ARCHIVO: modules/services/variables.tf ===
-variable "environment" {
-  description = "Entorno de despliegue"
-  type        = string
-}
-
-variable "project_name" {
-  description = "Nombre del proyecto"
-  type        = string
-}
-
-variable "cost_center" {
-  description = "Centro de costos"
-  type        = string
-}
-
-variable "aws_region" {
-  description = "Región de AWS"
-  type        = string
-}
-
-variable "account_id" {
-  description = "ID de la cuenta de AWS"
-  type        = string
-}
-
-variable "common_tags" {
-  description = "Etiquetas comunes"
-  type        = map(string)
-  default     = {}
 }
 
 variable "vpc_id" {
-  description = "ID de la VPC"
+  description = "ID de la VPC donde se desplegarán los recursos de cómputo"
   type        = string
-}
-
-variable "private_subnet_ids" {
-  description = "Lista de IDs de subredes privadas"
-  type        = list(string)
 }
 
 variable "public_subnet_ids" {
-  description = "Lista de IDs de subredes públicas"
+  description = "IDs de subredes públicas para el ALB"
   type        = list(string)
 }
 
-variable "private_subnet_cidrs" {
-  description = "Lista de CIDRs de subredes privadas"
+variable "private_subnet_ids" {
+  description = "IDs de subredes privadas para las instancias de aplicación"
   type        = list(string)
 }
 
-variable "lambda_security_group_id" {
-  description = "ID del security group para Lambda"
-  type        = string
+variable "common_tags" {
+  description = "Tags comunes aplicados a todos los recursos de cómputo"
+  type        = map(string)
 }
 
-variable "app_security_group_id" {
-  description = "ID del security group de aplicaciones"
+variable "instance_type" {
+  description = "Tipo de instancia EC2 para los servidores de aplicación"
   type        = string
+  default     = "t3.medium"
 }
 
-variable "monitoring_security_group_id" {
-  description = "ID del security group de monitoreo"
+variable "ami_id" {
+  description = "ID de la AMI personalizada para las instancias"
   type        = string
+  default     = ""
 }
 
-variable "alb_security_group_id" {
-  description = "ID del security group del ALB"
+variable "ami_owner" {
+  description = "Propietario de la AMI (aws, self, o account ID)"
   type        = string
+  default     = "self"
 }
 
-variable "fraud_detection_table" {
-  description = "Nombre de la tabla de detección de fraude"
+variable "instance_key_name" {
+  description = "Nombre del par de claves SSH para acceso a instancias"
   type        = string
+  default     = ""
 }
 
-variable "settlement_table" {
-  description = "Nombre de la tabla de liquidación"
-  type        = string
-}
-
-variable "transaction_table" {
-  description = "Nombre de la tabla de transacciones"
-  type        = string
-}
-
-variable "rds_endpoint" {
-  description = "Endpoint de la instancia RDS"
-  type        = string
-}
-
-variable "db_instance_class" {
-  description = "Clase de instancia de RDS"
-  type        = string
-}
-
-variable "db_allocated_storage" {
-  description = "Almacenamiento allocated para RDS en GB"
+variable "min_size" {
+  description = "Número mínimo de instancias en el Auto Scaling Group"
   type        = number
+  default     = 2
 }
 
-variable "db_max_allocated_storage" {
-  description = "Almacenamiento máximo para RDS"
+variable "max_size" {
+  description = "Número máximo de instancias en el Auto Scaling Group"
   type        = number
+  default     = 10
 }
 
-variable "db_name" {
-  description = "Nombre de la base de datos"
-  type        = string
-}
-
-variable "db_username" {
-  description = "Usuario de la base de datos"
-  type        = string
-}
-
-variable "db_password" {
-  description = "Contraseña de la base de datos"
-  type        = string
-  sensitive   = true
-}
-
-variable "db_backup_retention" {
-  description = "Días de retención de backups"
+variable "desired_capacity" {
+  description = "Número deseado de instancias en el Auto Scaling Group"
   type        = number
-  default     = 7
+  default     = 3
 }
 
-variable "db_instance_class_auditoria" {
-  description = "Clase de instancia de RDS para auditoría"
-  type        = string
-}
-
-variable "db_allocated_storage_auditoria" {
-  description = "Almacenamiento allocated para RDS de auditoría"
-  type        = number
-}
-
-variable "db_max_allocated_storage_auditoria" {
-  description = "Almacenamiento máximo para RDS de auditoría"
-  type        = number
-}
-
-variable "db_name_auditoria" {
-  description = "Nombre de la base de datos de auditoría"
-  type        = string
-}
-
-variable "alb_domain_name" {
-  description = "Nombre de dominio para el ALB"
-  type        = string
-}
-
-variable "alb_subject_alternative_names" {
-  description = "Nombres alternativos para el certificado del ALB"
+variable "target_group_arns" {
+  description = "ARNs de los target groups para el ALB"
   type        = list(string)
   default     = []
 }
 
-variable "sns_topic_arn" {
-  description = "ARN del topic SNS para alarmas"
+variable "alb_name" {
+  description = "Nombre del Application Load Balancer"
   type        = string
   default     = ""
 }
 
-variable "db_username" {
-  description = "Usuario de la base de datos"
+variable "alb_type" {
+  description = "Tipo de ALB: application, network, o gateway"
+  type        = string
+  default     = "application"
+}
+
+variable "alb_internal" {
+  description = "Determina si el ALB es interno (true) o público (false)"
+  type        = bool
+  default     = false
+}
+
+variable "enable_deletion_protection" {
+  description = "Habilitar protección contra eliminación del ALB"
+  type        = bool
+  default     = true
+}
+
+variable "alb_idle_timeout" {
+  description = "Tiempo de espera inactivo del ALB en segundos"
+  type        = number
+  default     = 60
+}
+
+variable "enable_cross_zone_load_balancing" {
+  description = "Habilitar balanceo de carga entre AZs"
+  type        = bool
+  default     = true
+}
+
+variable "health_check_path" {
+  description = "Path para health checks del ALB"
+  type        = string
+  default     = "/health"
+}
+
+variable "health_check_interval" {
+  description = "Intervalo entre health checks en segundos"
+  type        = number
+  default     = 30
+}
+
+variable "health_check_timeout" {
+  description = "Timeout de health check en segundos"
+  type        = number
+  default     = 5
+}
+
+variable "healthy_threshold" {
+  description = "Número de respuestas exitosas para considerar instancia saludable"
+  type        = number
+  default     = 2
+}
+
+variable "unhealthy_threshold" {
+  description = "Número de respuestas fallidas para considerar instancia no saludable"
+  type        = number
+  default     = 2
+}
+
+variable "root_volume_size" {
+  description = "Tamaño del volumen raíz en GB"
+  type        = number
+  default     = 50
+}
+
+variable "root_volume_type" {
+  description = "Tipo de volumen raíz: gp2, gp3, io1, io2"
+  type        = string
+  default     = "gp3"
+}
+
+variable "root_volume_encrypted" {
+  description = "Cifrar volumen raíz"
+  type        = bool
+  default     = true
+}
+
+variable "additional_ebs_volume_size" {
+  description = "Tamaño de volumen EBS adicional en GB"
+  type        = number
+  default     = 0
+}
+
+variable "additional_ebs_volume_type" {
+  description = "Tipo de volumen EBS adicional"
+  type        = string
+  default     = "gp3"
+}
+
+variable "user_data" {
+  description = "Script de inicialización de instancias (base64)"
+  type        = string
+  default     = ""
+}
+
+variable "iam_instance_profile" {
+  description = "Nombre del IAM instance profile para las instancias"
+  type        = string
+  default     = ""
+}
+
+variable "enable_monitoring" {
+  description = "Habilitar monitoreo detallado de instancias"
+  type        = bool
+  default     = true
+}
+
+variable "enable_termination_protection" {
+  description = "Habilitar protección contra terminación de instancias"
+  type        = bool
+  default     = false
+}
+
+variable "associate_public_ip_address" {
+  description = "Asociar IP pública a instancias (solo en subredes públicas)"
+  type        = bool
+  default     = false
+}
+
+variable "placement_tenancy" {
+  description = "Tenancy de las instancias: default o dedicated"
+  type        = string
+  default     = "default"
+}
+
+variable "enable_spot_instances" {
+  description = "Habilitar uso de instancias spot para reducir costos"
+  type        = bool
+  default     = false
+}
+
+variable "spot_instance_max_price" {
+  description = "Precio máximo para instancias spot (en USD por hora)"
+  type        = string
+  default     = ""
+}
+
+variable "asg_metrics" {
+  description = "Métricas adicionales a collect para el ASG"
+  type        = list(string)
+  default     = []
+}
+
+variable "asg_suspended_processes" {
+  description = "Procesos suspendidos del ASG"
+  type        = list(string)
+  default     = []
+}
+
+variable "default_cooldown" {
+  description = "Cooldown predeterminado del ASG en segundos"
+  type        = number
+  default     = 300
+}
+
+variable "health_check_type" {
+  description = "Tipo de health check: EC2 o ELB"
+  type        = string
+  default     = "ELB"
+}
+
+variable "web_security_group_id" {
+  description = "ID del security group para la capa web"
   type        = string
 }
 
-variable "db_password" {
-  description = "Contraseña de la base de datos"
+variable "app_security_group_id" {
+  description = "ID del security group para la capa de aplicación"
   type        = string
-  sensitive   = true
 }
 
+variable "db_security_group_id" {
+  description = "ID del security group para la base de datos"
+  type        = string
+  default     = ""
+}
+
+variable "ec2_instance_profile_arn" {
+  description = "ARN del perfil de instancia EC2"
+  type        = string
+  default     = ""
+}
+
+variable "ec2_instance_profile_name" {
+  description = "Nombre del perfil de instancia EC2"
+  type        = string
+  default     = ""
+}
+
+variable "fraud_detection_endpoint" {
+  description = "Endpoint del servicio de detección de fraude"
+  type        = string
+  default     = ""
+}
+
+variable "settlement_endpoint" {
+  description = "Endpoint del servicio de liquidación"
+  type        = string
+  default     = ""
+}
+
+variable "db_endpoint" {
+  description = "Endpoint de la base de datos"
+  type        = string
+  default     = ""
+}
+
+variable "fraud_db_endpoint" {
+  description = "Endpoint de la base de datos de fraude"
+  type        = string
+  default     = ""
+}
+
+variable "lambda_execution_role_arn" {
+  description = "ARN del rol de ejecución de Lambda"
+  type        = string
+  default     = ""
+}
+
+variable "domain_name" {
+  description = "Nombre de dominio para la aplicación"
+  type        = string
+  default     = ""
+}
+
+variable "autoscaling_topic_arn" {
+  description = "ARN del topic SNS para acciones de auto scaling"
+  type        = string
+  default     = ""
+}
+
+variable "internal_alb_security_group_id" {
+  description = "ID del security group para el ALB interno"
+  type        = string
+  default     = ""
+}
+
+variable "payment_gateway_instance_type" {
+  description = "Tipo de instancia para el gateway de pagos"
+  type        = string
+  default     = "t3.medium"
+}
+
+variable "settlement_instance_type" {
+  description = "Tipo de instancia para el servicio de liquidación"
+  type        = string
+  default     = "t3.medium"
+}
+
+variable "payment_gateway_desired_capacity" {
+  description = "Capacidad deseada del ASG del gateway de pagos"
+  type        = number
+  default     = 3
+}
+
+variable "payment_gateway_min_size" {
+  description = "Tamaño mínimo del ASG del gateway de pagos"
+  type        = number
+  default     = 2
+}
+
+variable "payment_gateway_max_size" {
+  description = "Tamaño máximo del ASG del gateway de pagos"
+  type        = number
+  default     = 10
+}
+
+variable "ssl_certificate_arn" {
+  description = "ARN del certificado SSL"
+  type        = string
+  default     = ""
+}
+
+// === ARCHIVO: modules/compute/main.tf ===
+# Módulo de cómputo: define EC2, ASG, ALB, Lambda y monitoreo
+
+data "aws_ami" "amazon_linux_2023" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["al2023-ami-*-x86_64"]
+  }
+}
+
+# Launch Template para el gateway de pagos
+resource "aws_launch_template" "payment_gateway_lt" {
+  name_prefix   = "payment-gateway-"
+  image_id      = data.aws_ami.amazon_linux_2023.id
+  instance_type = var.payment_gateway_instance_type
+
+  iam_instance_profile {
+    name = var.ec2_instance_profile_name
+  }
+
+  vpc_security_group_ids = [var.web_security_group_id, var.app_security_group_id]
+
+  user_data = base64encode(<<-EOF
+              #!/bin/bash
+              yum update -y
+              yum install -y docker nginx
+              systemctl enable docker
+              systemctl start docker
+              EOF
+  )
+
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 1
+  }
+
+  monitoring {
+    enabled = true
+  }
+
+  tag_specifications {
+    resource_type = "instance"
+    tags = {
+      Name        = "payment-gateway"
+      Environment = var.environment
+      Component   = "payment-gateway"
+      Tier        = "application"
+    }
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+# Auto Scaling Group para el gateway de pagos
+resource "aws_autoscaling_group" "payment_gateway_asg" {
+  name                = "payment-gateway-asg-${var.environment}"
+  vpc_zone_identifier = var.private_subnet_ids
+  desired_capacity    = var.payment_gateway_desired_capacity
+  min_size            = var.payment_gateway_min_size
+  max_size            = var.payment_gateway_max_size
+  health_check_type   = "ELB"
+  health_check_grace_period = 300
+
+  launch_template {
+    id      = aws_launch_template.payment_gateway_lt.id
+    version = "$Latest"
+  }
+
+  tag {
+    key                 = "Name"
+    value               = "payment-gateway-asg"
+    propagate_at_launch = true
+  }
+
+  tag {
+    key                 = "Environment"
+    value               = var.environment
+    propagate_at_launch = true
+  }
+
+  tag {
+    key                 = "Component"
+    value               = "payment-gateway"
+    propagate_at_launch = true
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+# Políticas de auto scaling
+resource "aws_autoscaling_policy" "payment_gateway_scale_up" {
+  name                   = "payment-gateway-scale-up"
+  scaling_adjustment     = 2
+  adjustment_type        = "ChangeInCapacity"
+  cooldown               = 300
+  autoscaling_group_name = aws_autoscaling_group.payment_gateway_asg.name
+}
+
+resource "aws_autoscaling_policy" "payment_gateway_scale_down" {
+  name                   = "payment-gateway-scale-down"
+  scaling_adjustment     = -2
+  adjustment_type        = "ChangeInCapacity"
+  cooldown               = 300
+  autoscaling_group_name = aws_autoscaling_group.payment_gateway_asg.name
+}
+
+# ALB público para el gateway de pagos
+resource "aws_lb" "public_alb" {
+  name               = "payment-gateway-alb-${var.environment}"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [var.web_security_group_id]
+  subnets            = var.public_subnet_ids
+
+  enable_deletion_protection = var.environment == "prod" ? true : false
+
+  tags = {
+    Name        = "payment-gateway-public-alb"
+    Environment = var.environment
+    Component   = "payment-gateway"
+  }
+}
+
+# Target group para el gateway de pagos
+resource "aws_lb_target_group" "payment_gateway_tg" {
+  name     = "payment-gateway-tg-${var.environment}"
+  port     = 8080
+  protocol = "HTTP"
+  vpc_id   = var.vpc_id
+
+  health_check {
+    enabled             = true
+    healthy_threshold   = 2
+    interval            = 30
+    matcher             = "200"
+    path                = "/health"
+    port                = "traffic-port"
+    protocol            = "HTTP"
+    timeout             = 5
+    unhealthy_threshold = 2
+  }
+
+  target_type = "instance"
+}
+
+# Listener HTTPS para el ALB
+resource "aws_lb_listener" "payment_gateway_https" {
+  load_balancer_arn = aws_lb.public_alb.arn
+  port              = "443"
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-2016-08"
+  certificate_arn   = var.ssl_certificate_arn
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.payment_gateway_tg.arn
+  }
+}
+
+# Listener HTTP con redirect a HTTPS
+resource "aws_lb_listener" "payment_gateway_http_redirect" {
+  load_balancer_arn = aws_lb.public_alb.arn
+  port              = "80"
+  protocol          = "HTTP"
+
+  default_action {
+    type = "redirect"
+    redirect {
+      port        = "443"
+      protocol    = "HTTPS"
+      status_code = "HTTP_301"
+    }
+  }
+}
+
+# Alarma CloudWatch para CPU alto
+resource "aws_cloudwatch_metric_alarm" "payment_gateway_cpu_high" {
+  alarm_name          = "payment-gateway-cpu-high-${var.environment}"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "2"
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/EC2"
+  period              = "120"
+  statistic           = "Average"
+  threshold           = "75"
+
+  dimensions = {
+    AutoScalingGroupName = aws_autoscaling_group.payment_gateway_asg.name
+  }
+
+  alarm_actions = var.autoscaling_topic_arn != "" ? [var.autoscaling_topic_arn] : []
+  ok_actions    = var.autoscaling_topic_arn != "" ? [var.autoscaling_topic_arn] : []
+
+  tags = {
+    Environment = var.environment
+    Component   = "payment-gateway"
+  }
+}
+
+# Alarma CloudWatch para requests por target
+resource "aws_cloudwatch_metric_alarm" "payment_gateway_request_count" {
+  alarm_name          = "payment-gateway-request-count-${var.environment}"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "1"
+  metric_name         = "RequestCountPerTarget"
+  namespace           = "AWS/ApplicationELB"
+  period              = "60"
+  statistic           = "Sum"
+  threshold           = "10000"
+
+  dimensions = {
+    LoadBalancer = aws_lb.public_alb.arn_suffix
+    TargetGroup  = aws_lb_target_group.payment_gateway_tg.arn_suffix
+  }
+
+  alarm_actions = var.autoscaling_topic_arn != "" ? [var.autoscaling_topic_arn] : []
+
+  tags = {
+    Environment = var.environment
+    Component   = "payment-gateway"
+  }
+}
+
+// === ARCHIVO: modules/compute/outputs.tf ===
+# Outputs del módulo de cómputo
+
+output "elb_dns_name" {
+  description = "DNS name del ALB público"
+  value       = aws_lb.public_alb.dns_name
+}
+
+output "elb_arn" {
+  description = "ARN del ALB público"
+  value       = aws_lb.public_alb.arn
+}
+
+output "elb_zone_id" {
+  description = "Zone ID del ALB público"
+  value       = aws_lb.public_alb.zone_id
+}
+
+output "asg_name" {
+  description = "Nombre del ASG"
+  value       = aws_autoscaling_group.payment_gateway_asg.name
+}
+
+output "asg_arn" {
+  description = "ARN del ASG"
+  value       = aws_autoscaling_group.payment_gateway_asg.arn
+}
+
+output "instance_ids" {
+  description = "IDs de las instancias del ASG"
+  value       = []
+}
+
+output "launch_template_id" {
+  description = "ID del launch template"
+  value       = aws_launch_template.payment_gateway_lt.id
+}
+
+output "target_group_arn" {
+  description = "ARN del target group"
+  value       = aws_lb_target_group.payment_gateway_tg.arn
+}
+
+output "scale_out_alarm_arn" {
+  description = "ARN de la alarma de scale out"
+  value       = aws_cloudwatch_metric_alarm.payment_gateway_cpu_high.arn
+}
+
+output "elb_security_group_id" {
+  description = "ID del security group del ALB"
+  value       = var.web_security_group_id
+}
 ```

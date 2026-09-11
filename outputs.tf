@@ -1,178 +1,194 @@
-# =============================================================================
-# OUTPUTS DE VPC - Identificadores y configuración de la red virtual
-# =============================================================================
+output "environment" {
+  description = "Environment name"
+  value       = var.environment
+}
+
+output "aws_region" {
+  description = "AWS region where resources are deployed"
+  value       = var.aws_region
+}
+
 output "vpc_id" {
-  description = "ID de la VPC principal"
-  value       = aws_vpc.main.id
+  description = "ID of the VPC"
+  value       = module.network.vpc_id
 }
 
 output "vpc_cidr" {
-  description = "Bloque CIDR de la VPC principal"
-  value       = aws_vpc.main.cidr_block
+  description = "CIDR block of the VPC"
+  value       = module.network.vpc_cidr
 }
 
-output "vpc_dns_hostnames_enabled" {
-  description = "Indicador de DNS hostnames habilitado"
-  value       = aws_vpc.main.enable_dns_hostnames
-}
-
-output "vpc_dns_support_enabled" {
-  description = "Indicador de DNS support habilitado"
-  value       = aws_vpc.main.enable_dns_support
-}
-
-# =============================================================================
-# OUTPUTS DE SUBREDES PÚBLICAS
-# =============================================================================
-output "subnet_public_payments_id" {
-  description = "ID de subred pública de pagos AZ1"
-  value       = aws_subnet.public_payments.id
-}
-
-output "subnet_public_payments_az2_id" {
-  description = "ID de subred pública de pagos AZ2"
-  value       = aws_subnet.public_payments_az2.id
-}
-
-output "subnet_public_monitoring_id" {
-  description = "ID de subred pública de monitoreo AZ1"
-  value       = aws_subnet.public_monitoring.id
-}
-
-output "subnet_public_monitoring_az2_id" {
-  description = "ID de subred pública de monitoreo AZ2"
-  value       = aws_subnet.public_monitoring_az2.id
+output "vpc_arn" {
+  description = "ARN of the VPC"
+  value       = module.network.vpc_arn
 }
 
 output "public_subnet_ids" {
-  description = "Lista de IDs de todas las subredes públicas"
-  value       = [aws_subnet.public_payments.id, aws_subnet.public_payments_az2.id, aws_subnet.public_monitoring.id, aws_subnet.public_monitoring_az2.id]
+  description = "IDs of the public subnets"
+  value       = module.network.public_subnet_ids
 }
 
-output "public_subnets_cidrs" {
-  description = "Lista de bloques CIDR de todas las subredes públicas"
-  value       = [var.subnet_public_payments_cidr, var.subnet_public_payments_cidr_az2, var.subnet_public_monitoring_cidr, var.subnet_public_monitoring_cidr_az2]
+output "private_subnet_app_ids" {
+  description = "IDs of the private subnets for application layer"
+  value       = module.network.private_subnet_app_ids
 }
 
-# =============================================================================
-# OUTPUTS DE SUBREDES PRIVADAS
-# =============================================================================
-output "subnet_private_payments_id" {
-  description = "ID de subred privada de pagos AZ1"
-  value       = aws_subnet.private_payments.id
+output "private_subnet_data_ids" {
+  description = "IDs of the private subnets for data layer"
+  value       = module.network.private_subnet_data_ids
 }
 
-output "subnet_private_payments_az2_id" {
-  description = "ID de subred privada de pagos AZ2"
-  value       = aws_subnet.private_payments_az2.id
-}
-
-output "subnet_private_database_id" {
-  description = "ID de subred privada de base de datos AZ1"
-  value       = aws_subnet.private_database.id
-}
-
-output "subnet_private_database_az2_id" {
-  description = "ID de subred privada de base de datos AZ2"
-  value       = aws_subnet.private_database_az2.id
-}
-
-output "subnet_private_audit_id" {
-  description = "ID de subred privada de auditoría AZ1"
-  value       = aws_subnet.private_audit.id
-}
-
-output "subnet_private_audit_az2_id" {
-  description = "ID de subred privada de auditoría AZ2"
-  value       = aws_subnet.private_audit_az2.id
-}
-
-output "private_subnet_ids" {
-  description = "Lista de IDs de todas las subredes privadas"
-  value       = [aws_subnet.private_payments.id, aws_subnet.private_payments_az2.id, aws_subnet.private_database.id, aws_subnet.private_database_az2.id, aws_subnet.private_audit.id, aws_subnet.private_audit_az2.id]
-}
-
-output "private_subnets_cidrs" {
-  description = "Lista de bloques CIDR de todas las subredes privadas"
-  value       = [var.subnet_private_payments_cidr, var.subnet_private_payments_cidr_az2, var.subnet_private_database_cidr, var.subnet_private_database_cidr_az2, var.subnet_private_audit_cidr, var.subnet_private_audit_cidr_az2]
-}
-
-# =============================================================================
-# OUTPUTS DE GATEWAYS
-# =============================================================================
-output "internet_gateway_id" {
-  description = "ID del Internet Gateway"
-  value       = aws_internet_gateway.main.id
-}
-
-output "nat_gateway_az1_id" {
-  description = "ID del NAT Gateway AZ1"
-  value       = aws_nat_gateway.main_az1.id
-}
-
-output "nat_gateway_az2_id" {
-  description = "ID del NAT Gateway AZ2"
-  value       = aws_nat_gateway.main_az2.id
-}
-
-output "nat_gateway_az1_ip" {
-  description = "IP elástica del NAT Gateway AZ1"
-  value       = aws_eip.nat_eip_az1.public_ip
-}
-
-output "nat_gateway_az2_ip" {
-  description = "IP elástica del NAT Gateway AZ2"
-  value       = aws_eip.nat_eip_az2.public_ip
+output "private_subnet_mgmt_ids" {
+  description = "IDs of the private subnets for management layer"
+  value       = module.network.private_subnet_mgmt_ids
 }
 
 output "nat_gateway_ids" {
-  description = "Lista de IDs de todos los NAT Gateways"
-  value       = [aws_nat_gateway.main_az1.id, aws_nat_gateway.main_az2.id]
+  description = "IDs of the NAT Gateways"
+  value       = module.network.nat_gateway_ids
 }
 
-# =============================================================================
-# OUTPUTS DE TABLAS DE RUTAS
-# =============================================================================
-output "route_table_public_id" {
-  description = "ID de la tabla de rutas pública"
-  value       = aws_route_table.public.id
+output "nat_gateway_elastic_ips" {
+  description = "Elastic IPs assigned to NAT Gateways"
+  value       = module.network.nat_gateway_elastic_ips
 }
 
-output "route_table_private_az1_id" {
-  description = "ID de la tabla de rutas privada AZ1"
-  value       = aws_route_table.private_az1.id
+output "internet_gateway_id" {
+  description = "ID of the Internet Gateway"
+  value       = module.network.igw_id
 }
 
-output "route_table_private_az2_id" {
-  description = "ID de la tabla de rutas privada AZ2"
-  value       = aws_route_table.private_az2.id
+output "public_route_table_id" {
+  description = "ID of the public route table"
+  value       = module.network.public_route_table_id
 }
 
-output "all_route_table_ids" {
-  description = "Lista de IDs de todas las tablas de rutas"
-  value       = [aws_route_table.public.id, aws_route_table.private_az1.id, aws_route_table.private_az2.id]
+output "private_route_table_ids" {
+  description = "IDs of the private route tables"
+  value       = module.network.private_route_table_ids
 }
 
-# =============================================================================
-# OUTPUTS DE ARQUITECTURA - Para integración con otros módulos
-# =============================================================================
-output "availability_zones" {
-  description = "Lista de AZs disponibles utilizadas"
-  value       = data.aws_availability_zones.available.names
-}
-
-output "network_architecture" {
-  description = "Descripción de la arquitectura de red"
+output "security_group_ids" {
+  description = "Map of security group IDs"
   value = {
-    vpc_cidr               = aws_vpc.main.cidr_block
-    public_subnets         = "4 subredes públicas en 2 AZs (pagos y monitoreo)"
-    private_subnets        = "6 subredes privadas en 2 AZs (pagos, database, audit)"
-    internet_gateway       = "1 IGW para acceso público"
-    nat_gateways           = "2 NAT Gateways (uno por AZ) para salida privada"
-    high_availability      = "Despliegue multi-AZ para tolerancia a fallos"
-    isolation_level        = "Segmentación completa entre tiers públicos y privados"
-    payment_services_subnets = [aws_subnet.private_payments.id, aws_subnet.private_payments_az2.id]
-    database_subnets       = [aws_subnet.private_database.id, aws_subnet.private_database_az2.id]
-    audit_subnets          = [aws_subnet.private_audit.id, aws_subnet.private_audit_az2.id]
+    elb_security_group_id      = module.security.elb_security_group_id
+    instance_security_group_id = module.security.instance_security_group_id
+    rds_security_group_id      = module.security.rds_security_group_id
+    internal_security_group_id = module.security.internal_security_group_id
   }
+}
+
+output "iam_role_arns" {
+  description = "Map of IAM role ARNs"
+  value = {
+    ec2_instance_role_arn = module.security.ec2_instance_role_arn
+    asg_service_role_arn  = module.security.asg_service_role_arn
+  }
+}
+
+output "kms_key_arns" {
+  description = "Map of KMS key ARNs"
+  value = {
+    security_kms_key_arn = module.security.security_kms_key_arn
+    ebs_kms_key_arn      = module.security.ebs_kms_key_arn
+    application_kms_key_arn = aws_kms_key.application.arn
+  }
+}
+
+output "application_log_group_name" {
+  description = "CloudWatch log group name for application logs"
+  value       = aws_cloudwatch_log_group.application_logs.name
+}
+
+output "application_logs_bucket_name" {
+  description = "S3 bucket name for application logs"
+  value       = aws_s3_bucket.application_logs.id
+}
+
+output "elb_dns_name" {
+  description = "DNS name of the Application Load Balancer"
+  value       = module.compute.elb_dns_name
+}
+
+output "elb_arn" {
+  description = "ARN of the Application Load Balancer"
+  value       = module.compute.elb_arn
+}
+
+output "elb_zone_id" {
+  description = "Zone ID of the ALB for Route 53 alias"
+  value       = module.compute.elb_zone_id
+}
+
+output "asg_name" {
+  description = "Name of the Auto Scaling Group"
+  value       = module.compute.asg_name
+}
+
+output "asg_arn" {
+  description = "ARN of the Auto Scaling Group"
+  value       = module.compute.asg_arn
+}
+
+output "instance_ids" {
+  description = "IDs of EC2 instances in the ASG"
+  value       = module.compute.instance_ids
+}
+
+output "launch_template_id" {
+  description = "ID of the Launch Template"
+  value       = module.compute.launch_template_id
+}
+
+output "target_group_arn" {
+  description = "ARN of the ALB target group"
+  value       = module.compute.target_group_arn
+}
+
+output "vpc_endpoints" {
+  description = "Map of VPC endpoint IDs"
+  value = {
+    s3            = aws_vpc_endpoint.s3.id
+    dynamodb      = aws_vpc_endpoint.dynamodb.id
+    secrets_manager = aws_vpc_endpoint.secrets_manager.id
+    ssm           = aws_vpc_endpoint.ssm.id
+    cloudwatch_logs = aws_vpc_endpoint.cloudwatch_logs.id
+    sqs           = aws_vpc_endpoint.sqs.id
+    sns           = aws_vpc_endpoint.sns.id
+  }
+}
+
+output "cloudwatch_alarm_arns" {
+  description = "Map of CloudWatch alarm ARNs"
+  value = {
+    high_cpu_alarm       = aws_cloudwatch_metric_alarm.high_cpu_utilization.arn
+    high_memory_alarm    = aws_cloudwatch_metric_alarm.high_memory_utilization.arn
+    target_response_time = aws_cloudwatch_metric_alarm.target_response_time.arn
+    target_5xx_errors    = aws_cloudwatch_metric_alarm.target_5xx_errors.arn
+  }
+}
+
+output "account_id" {
+  description = "AWS account ID"
+  value       = data.aws_caller_identity.current.account_id
+}
+
+output "all_public_subnet_cidrs" {
+  description = "CIDR blocks of all public subnets"
+  value       = local.public_subnet_cidrs
+}
+
+output "all_private_subnet_app_cidrs" {
+  description = "CIDR blocks of all private application subnets"
+  value       = local.private_subnet_app_cidrs
+}
+
+output "all_private_subnet_data_cidrs" {
+  description = "CIDR blocks of all private data subnets"
+  value       = local.private_subnet_data_cidrs
+}
+
+output "all_private_subnet_mgmt_cidrs" {
+  description = "CIDR blocks of all private management subnets"
+  value       = local.private_subnet_mgmt_cidrs
 }

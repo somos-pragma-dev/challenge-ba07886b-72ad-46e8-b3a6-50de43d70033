@@ -4,7 +4,7 @@ Instrucciones para el agente de IA que abra este repositorio (Claude Code, Curso
 
 ## Que es este repositorio
 
-Es el codigo base de un reto de aprendizaje de Pragma: **Diseño de red segura en entorno de pagos**.
+Es el codigo base de un reto de aprendizaje de Pragma: **Diseño de Red Segura para Entorno de Pagos**.
 
 | | |
 |---|---|
@@ -13,7 +13,7 @@ Es el codigo base de un reto de aprendizaje de Pragma: **Diseño de red segura e
 | Chapter | Cloud Ops |
 | Especialidad | AWS |
 | Stack | HCL / Terraform |
-| Patron arquitectonico | modular con capas de red, seguridad y servicios (VPC, subnets, route tables, security groups, IAM, servicios AWS) |
+| Patron arquitectonico | modular con landing zone y segmentación de red |
 | Tiempo estimado | 8 horas |
 
 ## Tu tarea
@@ -34,9 +34,9 @@ En orden:
 
 No resuelvas nada de esto:
 
-- **Fase 1 — Exploración del dominio y requisitos**: Documento que describe los requisitos de red y las restricciones del dominio.
-- **Fase 2 — Diseño de la topología de red**: Diagrama de la topología de red que muestra las subredes, servicios y rutas de comunicación.
-- **Fase 3 — Evaluación y optimización de la topología de red**: Documento que describe la evaluación y optimización de la topología de red, incluyendo propuestas de mejora y medidas de seguridad adicionales.
+- **Fase 1 — Definición de Requisitos de Red**: Documento de requisitos de red.
+- **Fase 2 — Diseño de la Topología de Red**: Diagrama de la topología de red.
+- **Fase 3 — Implementación y Validación**: Documento de implementación y validación de la topología de red.
 
 Distincion operativa:
 
@@ -45,55 +45,39 @@ Distincion operativa:
 
 ## Lo que falta y tenes que completar
 
-### 1. Boilerplate del stack (1)
+No se detectaron huecos: estan los archivos declarados, el boilerplate del stack y ninguna referencia quedo colgando. Igual corre el comando de verificacion — que los archivos existan no garantiza que compilen.
 
-Sin esto el proyecto no compila ni arranca. **Es tu trabajo crearlo**, y no toca nada de lo pedagogico: es andamiaje del stack.
+### Presentes (18)
 
-- [ ] **providers.tf** — Sin providers.tf, terraform init no sabe que proveedor bajar y no puede inicializar.
-
-### 2. Archivos que la arquitectura declara (2 de 22)
-
-La propuesta arquitectonica del reto los lista y no llegaron al repo. Crealos con implementacion real, respetando la capa en la que viven:
-
-- [ ] `providers.tf`
-- [ ] `providers.tf`
-
-### Presentes (23)
-
+- `providers.tf`
 - `variables.tf`
+- `modules/network/variables.tf`
+- `modules/security/variables.tf`
+- `modules/compute/variables.tf`
+- `backend.tf`
 - `main.tf`
 - `outputs.tf`
-- `backend.tf`
 - `README.md`
-- `modules/network/vpc.tf`
-- `modules/network/subnets.tf`
-- `modules/network/route_tables.tf`
-- `modules/network/internet_gateway.tf`
-- `modules/network/nat_gateway.tf`
-- `modules/security/security_groups.tf`
-- `modules/security/iam.tf`
-- `modules/security/kms.tf`
-- `modules/services/lambda.tf`
-- `modules/services/rds.tf`
-- `modules/services/alb.tf`
 - `environments/dev/terraform.tfvars`
 - `environments/qa/terraform.tfvars`
 - `environments/prod/terraform.tfvars`
-- `diagram/red_pagos.drawio`
-- `modules/network/variables.tf`
-- `modules/security/variables.tf`
-- `modules/services/variables.tf`
+- `modules/network/main.tf`
+- `modules/network/outputs.tf`
+- `modules/security/main.tf`
+- `modules/security/outputs.tf`
+- `modules/compute/main.tf`
+- `modules/compute/outputs.tf`
 
 ### Capas del patron declarado
 
 Cada una tiene que existir como directorio real con al menos un archivo. Codigo plano en la raiz no satisface el patron.
 
-- `modules/network`
-- `modules/security`
-- `modules/services`
 - `environments/dev`
 - `environments/qa`
 - `environments/prod`
+- `modules/network`
+- `modules/security`
+- `modules/compute`
 
 ## Verificacion
 
@@ -108,7 +92,7 @@ Ese comando pasando es la definicion de "terminado" para vos.
 - Un solo ecosistema: no declares librerias de otro lenguaje ni mezcles gestores de paquetes.
 - Toda libreria que uses tiene que estar declarada en el manifiesto de dependencias.
 - Todo import declarado tiene que usarse; todo tipo usado tiene que existir o venir de una dependencia declarada.
-- El patron es **modular con capas de red, seguridad y servicios (VPC, subnets, route tables, security groups, IAM, servicios AWS)**: los contratos (interfaces, puertos) los define la capa interna y los implementa la externa, nunca al revés.
+- El patron es **modular con landing zone y segmentación de red**: los contratos (interfaces, puertos) los define la capa interna y los implementa la externa, nunca al revés.
 - Los archivos que crees llevan implementacion real, no stubs: sin `TODO`, sin cuerpos vacios, sin `// getters y setters`.
 
 ## Contexto del candidato

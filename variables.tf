@@ -1,139 +1,95 @@
-variable "aws_region" {
-  description = "Región primaria de AWS donde se desplegará la infraestructura"
-  type        = string
-}
+# Declaración de variables globales del proyecto de infraestructura
+# Estas variables definen la configuración base que se aplica a todos los módulos
+# Los valores se proporcionan a través de archivos terraform.tfvars por ambiente
 
-variable "secondary_region" {
-  description = "Región secundaria de AWS para redundancia geográfica"
+variable "aws_region" {
+  description = "Región de AWS donde se desplegará la infraestructura"
   type        = string
 }
 
 variable "environment" {
-  description = "Entorno de despliegue (dev, qa, prod)"
+  description = "Ambiente de despliegue (dev, qa, prod)"
   type        = string
   validation {
     condition     = contains(["dev", "qa", "prod"], var.environment)
-    error_message = "El entorno debe ser uno de: dev, qa, prod"
+    error_message = "El ambiente debe ser uno de: dev, qa, prod"
   }
 }
 
-variable "cost_center" {
-  description = "Centro de costos para etiquetado y optimización de gastos"
-  type        = string
-}
-
 variable "project_name" {
-  description = "Nombre del proyecto para nomenclatura de recursos"
-  type        = string
-}
-
-variable "account_id" {
-  description = "ID de la cuenta de AWS"
+  description = "Nombre del proyecto para identificación de recursos"
   type        = string
 }
 
 variable "vpc_cidr" {
-  description = "Bloque CIDR principal para la VPC"
+  description = "CIDR block principal para la VPC"
   type        = string
   validation {
     condition     = can(cidrhost(var.vpc_cidr, 0))
-    error_message = "El CIDR de la VPC debe ser una dirección de red válida"
+    error_message = "Debe ser un CIDR válido (ej. 10.0.0.0/16)"
   }
 }
 
 variable "availability_zones" {
-  description = "Zonas de disponibilidad para la región primaria"
-  type        = list(string)
-}
-
-variable "secondary_availability_zones" {
-  description = "Zonas de disponibilidad para la región secundaria"
+  description = "Lista de AZs a utilizar en el entorno"
   type        = list(string)
 }
 
 variable "public_subnet_cidrs" {
-  description = "Bloques CIDR para subredes públicas"
+  description = "CIDRs para subredes públicas"
   type        = list(string)
 }
 
-variable "private_subnet_cidrs_pagos" {
-  description = "Bloques CIDR para subredes privadas del dominio de pagos"
+variable "private_subnet_cidrs" {
+  description = "CIDRs para subredes privadas (aplicación)"
   type        = list(string)
 }
 
-variable "private_subnet_cidrs_monitoreo" {
-  description = "Bloques CIDR para subredes privadas de monitoreo"
+variable "database_subnet_cidrs" {
+  description = "CIDRs para subredes de base de datos"
   type        = list(string)
 }
 
-variable "private_subnet_cidrs_auditoria" {
-  description = "Bloques CIDR para subredes privadas de auditoría"
-  type        = list(string)
+variable "common_tags" {
+  description = "Tags comunes aplicados a todos los recursos"
+  type        = map(string)
+  default     = {}
 }
 
-variable "subnet_public_payments_cidr" {
-  description = "CIDR para subred pública de pagos en AZ1"
-  type        = string
+variable "enable_nat_gateway" {
+  description = "Habilitar NAT Gateway para salida a internet desde subredes privadas"
+  type        = bool
+  default     = true
 }
 
-variable "subnet_public_payments_cidr_az2" {
-  description = "CIDR para subred pública de pagos en AZ2"
-  type        = string
-}
-
-variable "subnet_public_monitoring_cidr" {
-  description = "CIDR para subred pública de monitoreo en AZ1"
-  type        = string
-}
-
-variable "subnet_public_monitoring_cidr_az2" {
-  description = "CIDR para subred pública de monitoreo en AZ2"
-  type        = string
-}
-
-variable "subnet_private_payments_cidr" {
-  description = "CIDR para subred privada de pagos en AZ1"
-  type        = string
-}
-
-variable "subnet_private_payments_cidr_az2" {
-  description = "CIDR para subred privada de pagos en AZ2"
-  type        = string
-}
-
-variable "subnet_private_database_cidr" {
-  description = "CIDR para subred privada de base de datos en AZ1"
-  type        = string
-}
-
-variable "subnet_private_database_cidr_az2" {
-  description = "CIDR para subred privada de base de datos en AZ2"
-  type        = string
-}
-
-variable "subnet_private_audit_cidr" {
-  description = "CIDR para subred privada de auditoría en AZ1"
-  type        = string
-}
-
-variable "subnet_private_audit_cidr_az2" {
-  description = "CIDR para subred privada de auditoría en AZ2"
-  type        = string
-}
-
-variable "nat_gateway_count" {
-  description = "Cantidad de NAT Gateways a desplegar (1 por AZ o 1 único)"
-  type        = number
-  validation {
-    condition     = var.nat_gateway_count >= 1 && var.nat_gateway_count <= 3
-    error_message = "La cantidad de NAT Gateways debe estar entre 1 y 3"
-  }
+variable "single_nat_gateway" {
+  description = "Usar una única NAT Gateway para todas las subredes privadas (optimización de costos)"
+  type        = bool
+  default     = false
 }
 
 variable "enable_vpn_gateway" {
-  description = "Habilitar VPN Gateway para acceso seguro a la VPC"
+  description = "Habilitar VPN Gateway para conectividad híbrida"
   type        = bool
   default     = false
+}
+
+variable "enable_dx_gateway" {
+  description = "Habilitar Direct Connect Gateway para conectividad dedicada"
+  type        = bool
+  default     = false
+}
+
+variable "flow_log_destination_type" {
+  description = "Tipo de destino para VPC Flow Logs (cloud-watch-logs, s3, kinesis-data-firehose)"
+  type        = string
+  default     = "cloud-watch-logs"
+}
+
+variable "flow_log_retention_days" {
+  description = "Días de retención para logs de flujo de VPC"
+  type        = number
+  default     = 90
 }
 
 variable "enable_transit_gateway" {
@@ -143,28 +99,13 @@ variable "enable_transit_gateway" {
 }
 
 variable "allowed_cidr_blocks" {
-  description = "Bloques CIDR autorizados para acceso a servicios públicos"
+  description = "Bloques CIDR permitidos para acceso a recursos públicos"
   type        = list(string)
-}
-
-variable "enable_flow_logs" {
-  description = "Habilitar VPC Flow Logs para observabilidad del tráfico"
-  type        = bool
-  default     = true
-}
-
-variable "flow_log_destination_type" {
-  description = "Tipo de destino para VPC Flow Logs (s3, cloud-watch-logs)"
-  type        = string
-  default     = "s3"
-  validation {
-    condition     = contains(["s3", "cloud-watch-logs"], var.flow_log_destination_type)
-    error_message = "El tipo de destino debe ser s3 o cloud-watch-logs"
-  }
+  default     = []
 }
 
 variable "enable_dns_hostnames" {
-  description = "Habilitar nombres de host DNS en la VPC"
+  description = "Habilitar DNS hostnames en la VPC"
   type        = bool
   default     = true
 }
@@ -175,122 +116,120 @@ variable "enable_dns_support" {
   default     = true
 }
 
-variable "tags" {
-  description = "Etiquetas adicionales para todos los recursos"
-  type        = map(string)
-  default     = {}
-}
-
-variable "s3_bucket_prefix" {
-  description = "Prefijo para nombres de buckets S3"
+variable "backend_bucket" {
+  description = "Nombre del bucket S3 para almacenar el estado de Terraform"
   type        = string
 }
 
-variable "rds_instance_class" {
-  description = "Clase de instancia RDS para la base de datos de pagos"
+variable "backend_dynamodb_table" {
+  description = "Nombre de la tabla DynamoDB para lock del estado"
   type        = string
 }
 
-variable "rds_allocated_storage" {
-  description = "Almacenamiento allocated para RDS en GB"
+variable "nat_gateway_elastic_ips" {
+  description = "Cantidad de Elastic IPs para NAT Gateways"
   type        = number
-}
-
-variable "rds_multi_az" {
-  description = "Habilitar despliegue Multi-AZ para RDS"
-  type        = bool
-  default     = true
-}
-
-variable "lambda_runtime" {
-  description = "Runtime para funciones Lambda"
-  type        = string
-  default     = "python3.11"
-}
-
-variable "lambda_memory_size" {
-  description = "Memoria en MB para funciones Lambda"
-  type        = number
-  default     = 256
-}
-
-variable "lambda_timeout" {
-  description = "Timeout en segundos para funciones Lambda"
-  type        = number
-  default     = 30
-}
-
-variable "alb_timeout" {
-  description = "Timeout de respuesta del ALB en segundos"
-  type        = number
-  default     = 60
-}
-
-variable "alb_deletion_protection" {
-  description = "Habilitar protección contra eliminación del ALB"
-  type        = bool
-  default     = true
-}
-
-variable "kms_key_administrators" {
-  description = "ARNs de usuarios que pueden administrar claves KMS"
-  type        = list(string)
-}
-
-variable "kms_key_users" {
-  description = "ARNs de usuarios que pueden usar claves KMS"
-  type        = list(string)
-}
-
-variable "eks_cluster_endpoint" {
-  description = "Endpoint del cluster EKS"
-  type        = string
-  default     = ""
-}
-
-variable "eks_cluster_ca_cert" {
-  description = "Certificado CA del cluster EKS (base64)"
-  type        = string
-  default     = ""
-}
-
-variable "eks_cluster_token" {
-  description = "Token de acceso al cluster EKS"
-  type        = string
-  default     = ""
-  sensitive   = true
-}
-
-variable "enable_waf" {
-  description = "Habilitar AWS WAF para protección de aplicaciones"
-  type        = bool
-  default     = false
-}
-
-variable "cloudwatch_log_retention_days" {
-  description = "Días de retención para logs de CloudWatch"
-  type        = number
-  default     = 90
-  validation {
-    condition     = var.cloudwatch_log_retention_days >= 1 && var.cloudwatch_log_retention_days <= 365
-    error_message = "Los días de retención deben estar entre 1 y 365"
-  }
+  default     = 0
 }
 
 variable "enable_guardduty" {
-  description = "Habilitar Amazon GuardDuty para detección de amenazas"
+  description = "Habilitar GuardDuty para detección de amenazas"
   type        = bool
   default     = false
 }
 
-variable "rto_minutes" {
-  description = "Recovery Time Objective en minutos"
-  type        = number
-  default     = 60
+variable "enable_security_hub" {
+  description = "Habilitar Security Hub para consolidación de hallazgos"
+  type        = bool
+  default     = false
 }
 
-variable "rpo_minutes" {
-  description = "Recovery Point Objective en minutos"
+variable "enable_config" {
+  description = "Habilitar AWS Config para auditoría de recursos"
+  type        = bool
+  default     = false
+}
+
+variable "enable_cloudtrail" {
+  description = "Habilitar CloudTrail para auditoría de eventos"
+  type        = bool
+  default     = true
+}
+
+variable "cloudtrail_bucket_name" {
+  description = "Nombre del bucket S3 para logs de CloudTrail"
+  type        = string
+  default     = ""
+}
+
+variable "kms_administrator_arns" {
+  description = "ARNs de usuarios que pueden administrar claves KMS"
+  type        = list(string)
+  default     = []
+}
+
+variable "kms_user_arns" {
+  description = "ARNs de usuarios que pueden usar claves KMS"
+  type        = list(string)
+  default     = []
+}
+
+variable "instance_type" {
+  description = "Tipo de instancia EC2 para los servidores de aplicación"
+  type        = string
+  default     = "t3.medium"
+}
+
+variable "instance_tenancy" {
+  description = "Tenancy de las instancias: default o dedicated"
+  type        = string
+  default     = "default"
+}
+
+variable "ssh_key_name" {
+  description = "Nombre del par de claves SSH para acceso a instancias"
+  type        = string
+  default     = ""
+}
+
+variable "asg_min_size" {
+  description = "Número mínimo de instancias en el Auto Scaling Group"
   type        = number
-  default     = 15
+  default     = 2
+}
+
+variable "asg_max_size" {
+  description = "Número máximo de instancias en el Auto Scaling Group"
+  type        = number
+  default     = 10
+}
+
+variable "asg_desired_capacity" {
+  description = "Número deseado de instancias en el Auto Scaling Group"
+  type        = number
+  default     = 3
+}
+
+variable "elb_access_logs_bucket" {
+  description = "Bucket S3 para logs de acceso del ALB"
+  type        = string
+  default     = ""
+}
+
+variable "certificate_arn" {
+  description = "ARN del certificado ACM para HTTPS"
+  type        = string
+  default     = ""
+}
+
+variable "ebs_volume_size" {
+  description = "Tamaño del volumen EBS en GB"
+  type        = number
+  default     = 100
+}
+
+variable "admin_cidr_blocks" {
+  description = "Bloques CIDR para acceso administrativo"
+  type        = list(string)
+  default     = []
 }
